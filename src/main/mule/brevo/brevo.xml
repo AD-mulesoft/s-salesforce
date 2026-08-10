@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="brevoSendEmail_subFlow" doc:id="18370bd4-550e-44eb-a14d-bfba7e1dcb7a" >
+		<logger level="INFO" doc:name="dataToBrevo" doc:id="7dd3dc5c-4c13-46e3-a825-9ff57b021a2d" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.dataToBrevo]" />
+		<until-successful maxRetries="2" doc:name="Until Successful" doc:id="28f20e1c-00af-47b9-be23-7d20604c6253" millisBetweenRetries="5000" >
+			<http:request doc:name="Brevo Email" doc:id="484384e9-ffa5-4f9e-8b73-5c6a4af80f70" config-ref="HTTP_Request_Brevo" method="POST" path="${brevo.path.sendEmail}" >
+				<http:body ><![CDATA[#[vars.dataToBrevo]]]></http:body>
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"api-key" : p('brevo.api-key')
+}]]]></http:headers>
+			</http:request>
+		</until-successful>
+	</sub-flow>
+	<sub-flow name="brevoImportContacts_subFlow" doc:id="2b0f86af-df2c-44d2-87e1-79f38871fbe4" >
+		<ee:transform doc:name="Init Vars" doc:id="58a1ffab-697b-423c-93d3-74cf6a99e7a9" >
+			<ee:message />
+			<ee:variables >
+				<ee:set-variable variableName="listIds" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.listIds]]></ee:set-variable>
+				<ee:set-variable variableName="errorList" ><![CDATA[%dw 2.0
+output application/json
+---
+[]]]></ee:set-variable>
+				<ee:set-variable variableName="sizeOfList" ><![CDATA[%dw 2.0
+output application/json
+---
+sizeOf(payload.contacts)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each payload.contacts" doc:id="e2e86ee4-b76f-48fa-96d3-60452fb6e2c5" collection="#[payload.contacts]" >
+			<ee:transform doc:name="Format Brevo Contact" doc:id="f01a532c-41ea-46a8-a74d-3fdef2fca62a" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var regexPhone = /^\+\d{1,3}(?: ?\d){9}$/
+---
+{
+	"attributes": {
+		("NOMBRE": payload.nombre) if(!isEmpty(payload.nombre)),
+		("APELLIDOS": payload.apellido) if(!isEmpty(payload.apellido)),
+		("CARGO": payload.cargo) if(!isEmpty(payload.cargo)),
+		("JOB_TITLE": payload.cargo) if(!isEmpty(payload.cargo)),
+		("OWNER_EMPRESA": payload.ownerEmpresa) if(!isEmpty(payload.ownerEmpresa)),
+		("AREA": payload.area) if(!isEmpty(payload.area)),
+		("TIPO_CUENTA": payload.tipoCuenta) if(!isEmpty(payload.tipoCuenta)),
+		("RUT": payload.rut) if(!isEmpty(payload.rut)),
+		("EMPRESA": payload.empresa) if(!isEmpty(payload.empresa)),
+		("OWNER_CONTACTO": payload.ownerContacto) if(!isEmpty(payload.ownerContacto)),
+		("FECHA_CREACION_CRM": payload.createdDate) if(!isEmpty(payload.createdDate)),
+		("LANDLINE_NUMBER": payload.phone) if((!isEmpty(payload.phone)) and (payload.phone matches regexPhone)),
+		("SMS": payload.mobilePhone) if((!isEmpty(payload.mobilePhone)) and (payload.mobilePhone matches regexPhone)),
+//		("SMS": payload.mobilePhone) if(!isEmpty(payload.mobilePhone)),
+		("WHATSAPP": payload.mobilePhone) if((!isEmpty(payload.mobilePhone)) and (payload.mobilePhone matches regexPhone))
+	},
+	"updateEnabled": true,
+	"email": payload.email,
+	"ext_id": payload.id,
+	"listIds": if(payload.email contains ("volcan.cl")) [30] else vars.listIds
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<logger level="INFO" doc:name="payload" doc:id="5440a8cc-0640-4d88-808e-d272a2ffc2f6" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+			<try doc:name="Try" doc:id="325f43e5-a278-45db-a279-e83c63c6d53f" >
+				<http:request doc:name="Brevo Contacts" doc:id="022ff13f-e1b9-46f5-8f50-0bf427185ce4" config-ref="HTTP_Request_Brevo" method="POST" path="${brevo.path.importContacts}" >
+					<http:headers ><![CDATA[#[output application/java
+---
+{
+	"api-key" : p('brevo.api-key')
+}]]]></http:headers>
+				</http:request>
+				<error-handler >
+					<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="096d9f51-58c4-49ff-8587-1a2c384f24d2" type="HTTP:BAD_REQUEST" >
+						<logger level="INFO" doc:name="error" doc:id="9e8ad462-c6c3-4333-85b7-2191c2ab722d" message="#[%dw 2.0&#10;output application/json&#10;---&#10;error.errorMessage.payload]" />
+						<ee:transform doc:name="Transform Message" doc:id="7326d0b0-eebb-45b7-b891-33eedf575246" >
+							<ee:message />
+							<ee:variables >
+								<ee:set-variable variableName="errorList" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.errorList ++ [{
+	"id": payload.email,
+	"mensaje": error.errorMessage.payload.message
+}]]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</on-error-continue>
+					<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="37fb29b5-eaaf-41e0-a695-a7634cbdeb69" type="ANY" >
+						<logger level="INFO" doc:name="Logger" doc:id="3e81c808-dc2d-4a26-9be2-98394c93c0a5" message="ERROR" />
+					</on-error-propagate>
+				</error-handler>
+			</try>
+			<logger level="INFO" doc:name="payload1" doc:id="804a2bde-a1d7-463e-9b35-26818986266a" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+		</foreach>
+		<choice doc:name="Choice" doc:id="72f247e2-2ee9-4d20-a4a9-4ef0c2d03d4e" >
+			<when expression="#[!isEmpty(vars.errorList)]" >
+				<ee:transform doc:name="Prepare Error Email Message" doc:id="4378be17-b5df-4c8a-9ee0-b2def730fc94" >
+					<ee:message />
+					<ee:variables >
+						<ee:set-variable variableName="dataToBrevo" ><![CDATA[%dw 2.0
+output application/json
+
+var emailTo = (p('brevo.errorEmail.importContacts.email') splitBy (",")) map () -> {
+    "email": $
+}
+
+---
+{
+	"to": emailTo,
+	"templateId": p('brevo.errorEmail.importContacts.templateId') as Number,
+	"params": {
+		"proceso": p('brevo.errorEmail.importContacts.proceso'),
+		"items": vars.errorList
+	}
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<flow-ref doc:name="sendEmail_subFlow" doc:id="5de6badc-c0df-4ca9-a80e-eda33d3215dd" name="brevoSendEmail_subFlow" />
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Prepare Success Email Message" doc:id="5cce989a-d260-47c5-9949-1e7a1e2a2ecd" >
+					<ee:message />
+					<ee:variables >
+						<ee:set-variable variableName="dataToBrevo" ><![CDATA[%dw 2.0
+output application/json
+
+var emailTo = (p('brevo.successEmail.importContacts.email') splitBy (",")) map () -> {
+    "email": $
+}
+
+---
+{
+	"to": emailTo,
+	"templateId": p('brevo.successEmail.importContacts.templateId') as Number,
+	"params": {
+		"proceso": p('brevo.successEmail.importContacts.proceso'),
+		"registros": vars.sizeOfList as String
+	}
+}
+
+]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<flow-ref doc:name="sendEmail_subFlow" doc:id="d77e477b-ed09-4bb9-a172-190f8987b3e2" name="brevoSendEmail_subFlow" />
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="brevoSendSurvey_subFlow" doc:id="7f5bdfa8-ed15-4f72-9100-2614a9284f1c" >
+		<ee:transform doc:name="Init Vars" doc:id="fc2785f2-63a2-41d6-976e-cf5cbd5a1156">
+			<ee:message />
+			<ee:variables>
+				<ee:set-variable variableName="errorList"><![CDATA[%dw 2.0
+output application/json
+---
+[]]]></ee:set-variable>
+				<ee:set-variable variableName="dwSelector" ><![CDATA[%dw 2.0
+output application/java 
+var fileName= "modules/survey/$(vars.objectType).dwl"
+---
+readUrl("classpath://" ++ fileName,"text/plain")]]></ee:set-variable>
+				<ee:set-variable variableName="sfUrl" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.surveyUrl]]></ee:set-variable>
+				<ee:set-variable variableName="surveyTemplateId" ><![CDATA[%dw 2.0
+output application/json
+---
+p('brevo.survey.template.' ++ vars.objectType)]]></ee:set-variable>
+				<ee:set-variable variableName="sizeOfList" ><![CDATA[%dw 2.0
+output application/json
+---
+sizeOf(payload.surveyRecords)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each payload" doc:id="f7ca8467-26a2-48d4-b557-02cc95661203" collection="#[payload.surveyRecords]">
+			<ee:transform doc:name="Format Brevo Survey" doc:id="5b86d741-2c04-47e4-91b9-9494f2cd732c" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "to": [
+    {
+      "email": payload.email
+    }
+  ],
+  "templateId": vars.surveyTemplateId as Number,
+  "params": {
+    "url":vars.sfUrl,
+    "nombre": payload.firstName
+  }
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<!-- [STUDIO:"dwSelector"]<ee:dynamic-evaluate doc:name="dwSelector" doc:id="13545701-efa4-4327-b06f-60424f4626ae" expression="#[vars.dwSelector&#93;" /> [STUDIO] -->
+			<logger level="DEBUG" doc:name="payload" doc:id="ffafc69c-ccab-4421-9068-8ad4786b8b70" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+			<try doc:name="Try" doc:id="8dc17cc5-f651-4773-aeaf-3d17602d6f54" >
+				<http:request method="POST" doc:name="Brevo Survey" doc:id="d11cdf69-c1e2-4867-a525-982e401a8ae8" config-ref="HTTP_Request_Brevo" path="${brevo.path.sendSurvey}" >
+					<http:headers ><![CDATA[#[output application/java
+---
+{
+	"api-key" : p('brevo.api-key')
+}]]]></http:headers>
+				</http:request>
+				<error-handler >
+					<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="529b78ea-1c43-4cde-9315-6ba777883e42" type="HTTP:BAD_REQUEST" >
+						<logger level="INFO" doc:name="error" doc:id="3714442a-12d6-4072-8ff7-53ba3bed9c43" message="#[%dw 2.0&#10;output application/json&#10;---&#10;error.errorMessage.payload]" />
+						<ee:transform doc:name="Transform Message" doc:id="a1728808-af46-4cc4-8735-1d191e322df9" >
+							<ee:message />
+							<ee:variables >
+								<ee:set-variable variableName="errorList" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.errorList ++ [{
+	"id": payload.to[0].email,
+	"mensaje": error.errorMessage.payload.message
+}]]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</on-error-continue>
+					<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="88d75ca4-cd15-49ef-8937-fd6d00a9873c" type="ANY" >
+						<logger level="INFO" doc:name="Logger" doc:id="38a7ae23-c1fc-456a-8640-dac54b5be49c" message="ERROR" />
+					</on-error-propagate>
+				</error-handler>
+			</try>
+			<logger level="INFO" doc:name="payload" doc:id="2b509a7c-15a3-49e2-b1cb-fd85c02bec78" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+		</foreach>
+		<choice doc:name="Choice" doc:id="e0cb9949-1f57-4da9-9302-26e8845afcd2" >
+			<when expression="#[!isEmpty(vars.errorList)]" >
+				<ee:transform doc:name="Prepare Error Email Message" doc:id="4f3b61a5-cb45-4f23-bb5a-8829a09f4837" >
+					<ee:message />
+					<ee:variables >
+						<ee:set-variable variableName="dataToBrevo" ><![CDATA[%dw 2.0
+output application/json
+
+var emailTo = (p('brevo.errorEmail.sendSurvey.email') splitBy (",")) map () -> {
+    "email": $
+}
+
+---
+{
+	"to": emailTo,
+	"templateId": p('brevo.errorEmail.sendSurvey.templateId') as Number,
+	"params": {
+		"proceso": p('brevo.errorEmail.sendSurvey.' ++ vars.objectType),
+		"items": vars.errorList
+	}
+}]]></ee:set-variable>
+					
+</ee:variables>
+				</ee:transform>
+				<flow-ref doc:name="sendEmail_subFlow" doc:id="301ba733-50d7-4a37-8e0b-afd78e4c3008" name="brevoSendEmail_subFlow" />
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Prepare Success Email Message" doc:id="462f45a9-43a1-432e-833e-e742b582cd51" >
+					<ee:message />
+					<ee:variables >
+						<ee:set-variable variableName="dataToBrevo" ><![CDATA[%dw 2.0
+output application/json
+
+var emailTo = (p('brevo.successEmail.sendSurvey.email') splitBy (",")) map () -> {
+    "email": $
+}
+
+---
+{
+	"to": emailTo,
+	"templateId": p('brevo.successEmail.sendSurvey.templateId') as Number,
+	"params": {
+		"proceso": p('brevo.errorEmail.sendSurvey.' ++ vars.objectType),
+		"registros": vars.sizeOfList as String
+	}
+}
+
+]]></ee:set-variable>
+					
+</ee:variables>
+				</ee:transform>
+				<flow-ref doc:name="sendEmail_subFlow" doc:id="9b645df4-9202-496e-8e26-168a78e8583f" name="brevoSendEmail_subFlow" />
+			</otherwise>
+		</choice>
+	</sub-flow>
+</mule>

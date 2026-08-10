@@ -1,0 +1,13 @@
+%dw 2.0
+
+type auto_fc8b3036_9042_4f5d_a78e_dcde71250dad_Output_Variables_sfTipo = Array<Parametrizacion_Integracion_Clientes__c {"typeId": "Parametrizacion_Integracion_Clientes__c",
+"label": "Parametrizacion Integracion Clientes"}>
+type Parametrizacion_Integracion_Clientes__c = {|
+  Tipo__c?: ("5" | "15" | "8" | "21" | "4" | "11" | "14" | "19" | "16" | "10" | "22" | "9" | "2" | "12" | "20" | "7" | "3" | "13" | "17" | "1" | "6") {"typeId": "Tipo__c"}, 
+  Valor_Salesforce__c?: String {"typeId": "Valor_Salesforce__c"}, 
+  Valor_SAP__c?: String {"typeId": "Valor_SAP__c"}
+|} {"typeId": "Parametrizacion_Integracion_Clientes__c",
+"label": "Parametrizacion Integracion Clientes"}
+
+
+

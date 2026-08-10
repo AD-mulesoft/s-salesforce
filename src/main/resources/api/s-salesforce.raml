@@ -1,0 +1,41 @@
+#%RAML 1.0
+title: s-salesforce
+description: API de servicios encargados de comunicarse con Salesforce
+mediaType: 
+- application/json
+protocols:
+  - HTTPS
+
+/lead:
+  post:
+    body:
+      application/json:
+    responses:
+      201:
+        description: Ok
+        body:
+          application/json:
+/quote:
+  get:
+    queryParameters:
+      limit: string
+    responses:
+      200:
+        description: ok
+        body:
+          application/json:
+  post:
+    body:
+      application/json:
+    responses:
+      201:
+        description: Ok
+        body:
+          application/json:
+/product:
+  get:
+    responses:
+      200:
+        description: ok
+        body:
+          application/json:

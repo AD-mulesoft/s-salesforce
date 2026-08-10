@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_7f5bdfa8_ed15_4f72_9100_2614a9284f1c_Output_Variables_objectType = String
+

@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_2b0f86af_df2c_44d2_87e1_79f38871fbe4_Output_Variables_errorList = Array<Nothing>
+

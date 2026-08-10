@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<error-handler name="error-handlingError_Handler" doc:id="fab57ad1-5cca-4bf1-8803-471732c41abb" >
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="a1508899-323b-4024-aad7-7efab0713501" type="APP:QUOTE">
+			<logger level="INFO" doc:name="Logger" doc:id="c837060b-5578-43eb-a6a9-85f4881810d9" message="ERROR2"/>
+			<logger level="INFO" doc:name="Full payload" doc:id="9ab84162-970b-477d-a2c0-616364121956" message="#[payload]" />
+			<logger level="INFO" doc:name="errorPayload" doc:id="45a9fb22-7579-4c79-9660-b387b00bf5ab" message="#[vars.errorPayload]" />
+			<ee:transform doc:name="Response Payload" doc:id="cdde3e3e-0eea-4e18-9076-5bf9af72129e" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="httpStatus" ><![CDATA[%dw 2.0
+output application/json
+---
+400]]></ee:set-variable>
+					<ee:set-variable variableName="errorList" ><![CDATA[%dw 2.0
+output application/json
+---
+[{
+	"id": payload.opportunity_Id_Commerce__c ++ " - " ++ payload.opportunity_Name,
+	"mensaje": error.description
+}]
+
+//{
+//	"id": payload.opportunity_Id_Commerce__c,
+//	"message": error.description
+//}
+]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<ee:transform doc:name="dataToBrevo" doc:id="ad44ca53-78d4-4d69-9c4e-5bae27ad3af8">
+				<ee:message />
+				<ee:variables>
+					<ee:set-variable variableName="dataToBrevo"><![CDATA[%dw 2.0
+output application/json
+
+var emailTo = (p('ecommerce.quote.error.emailTo') splitBy (",")) map () -> {
+			    "email": $
+				}
+---
+{
+	"to": emailTo,
+	"templateId": p('ecommerce.quote.error.templateId') as Number,
+	"params": {
+		"proceso": p('ecommerce.quote.error.proceso-quote'),
+		"items": vars.errorList
+	}
+}]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<logger level="INFO" doc:name="Response Payload" doc:id="98ab8b48-ed26-4730-b357-feaf486ce639" message="#[payload]" />
+			<flow-ref doc:name="sendEmail_subFlow" doc:id="2ac62c1f-7d6d-4165-90a6-8fc4cfe12981" name="brevoSendEmail_subFlow" />
+		</on-error-propagate>
+	</error-handler>
+</mule>

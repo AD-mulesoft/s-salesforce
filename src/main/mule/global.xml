@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce-pub-sub="http://www.mulesoft.org/schema/mule/salesforce-pub-sub" xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/salesforce-pub-sub http://www.mulesoft.org/schema/mule/salesforce-pub-sub/current/mule-salesforce-pub-sub.xsd">
+	<global-property doc:name="Global Property" doc:id="cd5dee01-98ce-4a6c-bba2-51bca091756f" name="env" value="local" />
+	<configuration-properties doc:name="Configuration properties" doc:id="8fd784f3-a94e-4ae8-87f0-5164eca4d7ab" file="s-salesforce-${env}.yaml" />
+    <http:listener-config name="s-salesforce-httpListenerConfig">
+        <http:listener-connection host="${http.host}" port="${http.port}" readTimeout="${timeout.read}" connectionIdleTimeout="${timeout.idle}">
+			<reconnection >
+				<reconnect frequency="5000" count="3" />
+			</reconnection>
+		</http:listener-connection>
+    </http:listener-config>
+	<http:request-config name="HTTP_Request_Brevo" doc:name="HTTP Request configuration" doc:id="c10262af-6ea4-46d8-b39c-6459b60ccbb9" responseTimeout="${timeout.response}">
+		<http:request-connection host="${brevo.host}" port="${brevo.port}">
+			<reconnection >
+				<reconnect frequency="5000" count="3" />
+			</reconnection>
+		</http:request-connection>
+	</http:request-config>	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="2a3ddd4b-f042-4b85-936a-fa3b3b91f458" sendNullValues="true">
+		<salesforce:oauth-user-pass-connection consumerKey="${salesforce.client_id}" consumerSecret="${salesforce.client_secret}" username="${salesforce.user}" password="${salesforce.pass}" tokenEndpoint="${salesforce.tokenEndpoint}" securityToken="${salesforce.token}">
+			<reconnection >
+				<reconnect frequency="5000" count="3" />
+			</reconnection>
+		</salesforce:oauth-user-pass-connection>
+	</salesforce:sfdc-config>
+	<salesforce-pub-sub:pubsub-config name="Salesforce_PubSub_Config" doc:name="Salesforce PubSub Config" doc:id="636656fd-0c89-4db2-8ed6-5af0fd5c9f1b" >
+		<salesforce-pub-sub:oauth-user-pass-connection consumerKey="${salesforce.client_id}" consumerSecret="${salesforce.client_secret}" username="${salesforce.user}" password="${salesforce.pass}" tokenEndpoint="${salesforce.tokenEndpoint}" securityToken="${salesforce.token}">
+			<reconnection >
+				<reconnect frequency="5000" count="3" />
+			</reconnection>
+		</salesforce-pub-sub:oauth-user-pass-connection>
+	</salesforce-pub-sub:pubsub-config>
+	<configuration doc:name="Configuration" doc:id="3713f417-5771-42cc-9568-36819fd323a7" defaultErrorHandler-ref="error-handlingError_Handler" />
+	<http:request-config name="HTTP_Request_configuration_s-sap" doc:name="HTTP Request configuration" doc:id="b772b54a-ea54-4feb-b9fd-e1b040d52adb" responseTimeout="${timeout.response}">
+		<http:request-connection host="${s-sap.host}" port="${s-sap.port}" connectionIdleTimeout="${timeout.idle}">
+			<reconnection >
+				<reconnect frequency="5000" count="3" />
+			</reconnection>
+		</http:request-connection>
+	</http:request-config>
+</mule>

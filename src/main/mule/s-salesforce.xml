@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:salesforce-pub-sub="http://www.mulesoft.org/schema/mule/salesforce-pub-sub" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/salesforce-pub-sub http://www.mulesoft.org/schema/mule/salesforce-pub-sub/current/mule-salesforce-pub-sub.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+    <apikit:config name="s-salesforce-config" api="s-salesforce.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <flow name="s-salesforce-main">
+        <http:listener config-ref="s-salesforce-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="s-salesforce-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <!-- [STUDIO:"On Error Propagate"]<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="12dfb546-b66c-4631-a4f7-484e0e65905f" type="APP:QUOTE">
+                <logger level="INFO" doc:name="Full payload" doc:id="d7558fe9-1bc9-4abc-9292-2469a77dc5ca" message="#[payload&#93;" />
+                <logger level="INFO" doc:name="errorPayload" doc:id="c425bbd2-8ea6-4d0a-a0fb-924f7d109f89" message="#[vars.errorPayload&#93;" />
+                <ee:transform doc:name="Response Payload" doc:id="9107b7e0-0f52-48e3-98de-a21614102896">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+[{
+	"id": payload.opportunity_Id_Commerce__c ++ " - " ++ payload.opportunity_Name,
+	"mensaje": error.description
+}&#93;
+
+//{
+//	"id": payload.opportunity_Id_Commerce__c,
+//	"message": error.description
+//}
+&#93;&#93;></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+400&#93;&#93;></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <logger level="INFO" doc:name="Response Payload" doc:id="4cfff5d4-8771-4b76-8dc4-3a0c27d98325" message="#[payload&#93;" />
+				<flow-ref doc:name="sendEmail_subFlow" doc:id="9d845b39-d1f6-4203-afe1-515dbf027b25" name="sendEmail_subFlow"/>
+            </on-error-propagate> [STUDIO] -->
+        </error-handler>
+    </flow>
+    <!-- [STUDIO:"s-salesforce-console"]<flow name="s-salesforce-console">
+        <http:listener config-ref="s-salesforce-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200&#93;">
+                <http:headers>#[vars.outboundHeaders default {}&#93;</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500&#93;">
+                <http:body>#[payload&#93;</http:body>
+                <http:headers>#[vars.outboundHeaders default {}&#93;</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="s-salesforce-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+{message: "Resource not found"}&#93;&#93;></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow> [STUDIO] -->
+    <flow name="post:\lead:application\json:s-salesforce-config">
+        <logger level="INFO" message="INIT post:\lead" doc:name="INIT" />
+        <logger level="DEBUG" doc:name="Input Data" doc:id="b4eaa24a-2d53-4e35-9b2d-a498acfa91a2" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
+        <choice doc:name="Choice" doc:id="7f3f99a3-7d61-4878-9104-4ff630cb62bd" >
+			<when expression='#[payload.source == "Shopify"]'>
+				<flow-ref doc:name="lead_Shopify_subFlow" doc:id="b028c429-e4da-4f42-8d08-885bdbe5b0a4" name="lead_Shopify_subFlow" />
+				<logger level="DEBUG" doc:name="Output Data" doc:id="53b42e0c-1167-4349-93d6-1184d6eb26ce" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
+			</when>
+			<when expression='#[payload.source == "GFK"]'>
+				<async doc:name="Async" doc:id="bc71740d-9ee2-4955-b2ad-4dec7bba26f2" >
+					<flow-ref doc:name="lead_GFK_subFlow" doc:id="cbcbb247-fc6a-4fdc-a7bb-a36e24eea9f2" name="lead_GFK_subFlow" />
+				</async>
+			</when>
+		</choice>
+        <logger level="INFO" doc:name="END" doc:id="c0a6dc62-86c1-4d7e-a96c-a4531314a267" message="END post:\lead" />
+    </flow>
+    <flow name="get:\quote:s-salesforce-config">
+        <logger level="INFO" message="INIT get:\quote" doc:name="INIT" />
+        <logger level="DEBUG" doc:name="Input Data" doc:id="8520d2f1-bff2-4389-b305-3ad553d06f65" message="#[%dw 2.0&#xA;output text/plain&#xA;---&#xA;&quot;\r\n&#xA;\r\nReceived:\r\n queryParams: &quot; ++ write(attributes.queryParams,'application/json')]" />
+        <ee:transform doc:name="queryParams" doc:id="ea4687ed-e408-4ebe-a6c6-c112c8e333c6">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="queryParams"><![CDATA[%dw 2.0
+output application/json
+---
+message.attributes.queryParams]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <flow-ref doc:name="getQuote_subFlow" doc:id="6e553dd9-7269-4054-b473-73b00ac526c8" name="getQuote_subFlow" />
+        <logger level="DEBUG" doc:name="Output Data" doc:id="82d9841a-6898-4854-b375-5dc0354b4741" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
+        <logger level="INFO" doc:name="END" doc:id="f77d21e4-49d1-4d9b-bb6c-95c8ba7f1a4a" message="END get:\quote" />
+    </flow>
+    <flow name="post:\quote:application\json:s-salesforce-config">
+        <logger level="INFO" message="INIT post:\quote" doc:name="INIT" />
+        <logger level="INFO" doc:name="Input Data" doc:id="f500a284-b56d-4d53-b6cc-49d6b1b8ec64" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
+        <async doc:name="Async" doc:id="afb3d1be-c3ee-47fd-b08c-13537aae79ad" >
+			<try doc:name="Try" doc:id="fb4395b7-8ffb-4619-a24d-62a7567c1b3f" >
+				<flow-ref doc:name="postQuote_subFlow" doc:id="0cb7657b-1e65-49e9-906c-59290d603f6d" name="postQuote_subFlow" />
+				<error-handler >
+					<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="67bbffe9-a351-409d-8a7d-24a0a2c088bd" type="APP:QUOTE">
+						<logger level="INFO" doc:name="Logger" doc:id="e10a4819-a224-4640-8a24-523ecf107538" message="ERROR1" />
+						<logger level="INFO" doc:name="Full payload" doc:id="a7f17312-85a5-4503-91d2-162b6b2e7b1e" message="#[payload]" />
+						<logger level="INFO" doc:name="errorPayload" doc:id="37711d58-8357-4531-888e-f62cdc87d600" message="#[vars.errorPayload]" />
+						<ee:transform doc:name="errorList" doc:id="1094f37f-ef6d-4fbe-82e5-885fa03141f8" >
+							<ee:message />
+							<ee:variables >
+								<ee:set-variable variableName="httpStatus" ><![CDATA[%dw 2.0
+output application/json
+---
+400]]></ee:set-variable>
+								<ee:set-variable variableName="errorList" ><![CDATA[%dw 2.0
+output application/json
+---
+[{
+	"id": payload.opportunity_Id_Commerce__c ++ " - " ++ payload.opportunity_Name,
+	"mensaje": error.description
+}]
+
+//{
+//	"id": payload.opportunity_Id_Commerce__c,
+//	"message": error.description
+//}
+]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<ee:transform doc:name="dataToBrevo" doc:id="61716fdf-67f5-43b2-85ad-224f0c02557d" >
+							<ee:message />
+							<ee:variables >
+								<ee:set-variable variableName="dataToBrevo" ><![CDATA[%dw 2.0
+output application/json
+
+var emailTo = (p('ecommerce.quote.error.emailTo') splitBy (",")) map () -> {
+			    "email": $
+				}
+---
+{
+	"to": emailTo,
+	"templateId": p('ecommerce.quote.error.templateId') as Number,
+	"params": {
+		"proceso": p('ecommerce.quote.error.proceso-quote'),
+		"items": vars.errorList
+	}
+}]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<flow-ref doc:name="brevoSendEmail_subFlow" doc:id="9e61e880-73bd-458f-871c-a8fd4ae4d31b" name="brevoSendEmail_subFlow" />
+					</on-error-propagate>
+				</error-handler>
+			</try>
+		</async>
+        <ee:transform doc:name="payload" doc:id="9de2ef3c-ce9b-4a0c-bc7d-8b8379a2e6c9">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+"OK"]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+        <logger level="INFO" doc:name="END" doc:id="823f5753-3e07-4665-beab-a5a6bd84361c" message="END post:\quote" />
+    </flow>
+	<flow name="get:\product:s-salesforce-config">
+        <logger level="INFO" message="INIT get:\product" doc:name="INIT"/>
+		<flow-ref doc:name="getProductos_subFlow" doc:id="9d4219f9-6a22-4872-abee-778a1e4f63da" name="getProductos_subFlow"/>
+		<logger level="INFO" doc:name="Output Data" doc:id="7edb81a3-45b6-4282-8f15-c935fd27d1bf" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+		<logger level="INFO" doc:name="END" doc:id="3cf04b8d-3a42-4ce2-946b-c9e2b3944b94" message="END get:\product" />
+    </flow>
+	<flow name="Send_Contacts" doc:id="3f4fce6d-5abd-4b52-9ecb-3c1da0225116" maxConcurrency="1">
+        <scheduler doc:name="Scheduler" doc:id="78355479-b012-4d83-b35d-c8e2e8f36a6c">
+            <scheduling-strategy>
+                <cron expression="0 0 8 ? * * *" timeZone="America/Santiago" />
+            </scheduling-strategy>
+        </scheduler>
+        <logger level="INFO" doc:name="INIT" doc:id="3e080a0f-41a2-4e28-9f0a-b64f22d9b359" message="INIT - Import Contacts" />
+        <flow-ref doc:name="sendContacts_subFlow" doc:id="beed8a37-27f2-4e27-a9fc-28e4d7a3a2e6" name="sendContacts_subFlow" />
+        <logger level="INFO" doc:name="END" doc:id="637ede57-ad53-4537-b855-53293d27067c" message="END - Import Contacts" />
+    </flow>
+	<flow name="Send_Survey" doc:id="d4ed8fdb-e64f-4f26-bab7-0a97563d660f" maxConcurrency="1">
+        <scheduler doc:name="Scheduler" doc:id="f7585c38-9444-48da-823d-6b67d667c6bd">
+            <scheduling-strategy>
+                <cron timeZone="America/Santiago" expression="0 0 9 ? * 3#1 *" />
+            </scheduling-strategy>
+        </scheduler>
+        <logger level="INFO" doc:name="INIT" doc:id="9681e731-9187-49b7-9efd-9cc31ca3f523" message="INIT - Send Survey" />
+        <flow-ref doc:name="sendSurvey_subFlow" doc:id="911cd864-e4a5-47d9-a88b-177d1ba6fa4a" name="sendSurvey_subFlow" />
+        <logger level="INFO" doc:name="END" doc:id="8aee2032-9cb4-4b70-8553-f96c1181101c" message="END - Send Survey" />
+    </flow>
+	<flow name="Send_Client" doc:id="fc8b3036-9042-4f5d-a78e-dcde71250dad" maxConcurrency="1">
+		<salesforce-pub-sub:subscribe-channel-listener doc:name="Subscribe channel listener" doc:id="86683a6e-17fd-49c2-a47b-324cd207c6b3" config-ref="Salesforce_PubSub_Config" channelName="/event/VLC_Registros_a_SAP__e">
+			<salesforce-pub-sub:replay-option >
+				<salesforce-pub-sub:latest />
+			</salesforce-pub-sub:replay-option>
+		</salesforce-pub-sub:subscribe-channel-listener>
+		<logger level="INFO" doc:name="INIT" doc:id="7df3f13d-b853-4a4d-a46a-45a96b899e8e" message="INIT Subscribe"/>
+		<logger level="INFO" doc:name="payload" doc:id="367514ee-e8f5-49e4-884b-c4dafb349e62" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]"/>
+		<ee:transform doc:name="Init vars" doc:id="e452ddc7-62ae-425a-ae44-2541fe3c35fb" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="sfId" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.event.Id__c]]></ee:set-variable>
+				<ee:set-variable variableName="objectType" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.event.sObject__c ++ "-" ++ payload.event.Operation__c]]></ee:set-variable>
+				<ee:set-variable variableName="sfObject" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.event.sObject__c]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="9b7c6ed9-b8ce-4c4e-a511-b5cf3b59d75b" >
+			<when expression='#[vars.objectType == "Account-Insert" or vars.objectType == "Tiernda_Obra__c-Insert"]'>
+				<ee:transform doc:name="Query + dwSelector" doc:id="be590633-bbd2-4371-b073-121dad8935d4">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="dwSelector"><![CDATA[%dw 2.0
+output application/java 
+var fileName= "modules/salesforce/$(vars.objectType).dwl"
+---
+readUrl("classpath://" ++ fileName,"text/plain")]]></ee:set-variable>
+				<ee:set-variable variableName="sfQuery"><![CDATA[%dw 2.0
+output application/json
+---
+p('sfToSap.query.' ++ vars.objectType) replace "REPLACEID" with (vars.sfId)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+			</when>
+			<when expression='#[vars.objectType == "Account-Update" or vars.objectType == "Tiernda_Obra__c-Update"]'>
+				<ee:transform doc:name="Query" doc:id="b486ef34-6fa9-4c5a-9a9b-64a8129d7263">
+					<ee:message />
+					<ee:variables>
+						<ee:set-variable variableName="sfQuery"><![CDATA[%dw 2.0
+output application/json
+
+var historyField = if (vars.objectType == "Account-Update") "VLC_Account__c"
+					else if (vars.objectType == "Tiernda_Obra__c-Update") "VLC_Tienda_Obra__c"
+					else ""
+//vars.objectType == "Account-Update" or vars.objectType == "Tiernda_Obra__c-Update"
+---
+"SELECT Id, VLC_Objeto__c, VLC_Account__c, VLC_Tienda_Obra__c, VLC_Campo__c, VLC_Estado__c, VLC_Detalle_Estado__c, VLC_Fecha_Envio__c, VLC_External_ID__c FROM Field_History__c WHERE VLC_Estado__c IN ('Pendiente','Error') AND " ++
+historyField ++ " = '" ++ vars.sfId ++ "' AND IsDeleted = false"]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<logger level="INFO" doc:name="sfQuery" doc:id="56f33382-2a48-4a68-92b3-311d31bba6fe" message="#[vars.sfQuery]"/>
+				<salesforce:query-all doc:name="sfQuery" doc:id="83ac291c-cb23-499b-aab7-6718afe9c588" config-ref="Salesforce_Config" target="sfField_History__c">
+					<salesforce:salesforce-query ><![CDATA[#[vars.sfQuery]]]></salesforce:salesforce-query>
+				</salesforce:query-all>
+				<logger level="INFO" doc:name="sfField_History__c" doc:id="cda24f7c-7756-421d-98e3-2add543eb1e7" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfField_History__c]" />
+				<ee:transform doc:name="Query + dwSelector" doc:id="be147e3b-33cd-4e56-b372-44a6fc630c74" >
+					<ee:message />
+					<ee:variables >
+						<ee:set-variable variableName="dwSelector" ><![CDATA[%dw 2.0
+output application/java 
+var fileName= "modules/salesforce/$(vars.objectType).dwl"
+---
+readUrl("classpath://" ++ fileName,"text/plain")]]></ee:set-variable>
+						<ee:set-variable variableName="sfQuery" ><![CDATA[%dw 2.0
+output application/json
+---
+p('sfToSap.query.' ++ vars.objectType) replace "REPLACEID" with (vars.sfId) replace " REPLACEFIELDS" with (
+    if(!isEmpty(vars.sfField_History__c.VLC_Campo__c)) (", " ++ ((vars.sfField_History__c.VLC_Campo__c joinBy ", ") default ""))
+    else "")]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+		</choice>
+		<salesforce:query-all doc:name="sfQuery" doc:id="806c7074-1465-41ca-a117-3b734fdda66a" config-ref="Salesforce_Config" target="sfRecord" targetValue="#[payload[0]]">
+			<salesforce:salesforce-query ><![CDATA[#[vars.sfQuery]]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+		<logger level="INFO" doc:name="sfRecord" doc:id="a7201e5e-204c-4a00-9db4-3b1d7edd61c4" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfRecord]" />
+		<salesforce:query-all doc:name="sfTipo" doc:id="a9687a02-1919-4817-a1e3-a91513c272c9" config-ref="Salesforce_Config" target="sfTipo">
+			<salesforce:salesforce-query ><![CDATA[SELECT Tipo__c,  Valor_Salesforce__c, Valor_SAP__c FROM Parametrizacion_Integracion_Clientes__c WHERE isDeleted = false]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+		<!-- [STUDIO:"sfTipo"]<logger level="DEBUG" doc:name="sfTipo" doc:id="ea741536-eb7a-4268-83a4-53f7369f979c" message="#[%dw 2.0&#10;output application/json&#10;&#45;&#45;-&#10;vars.sfTipo&#93;" /> [STUDIO] -->
+		<ee:dynamic-evaluate doc:name="Dynamic Evaluate" doc:id="69f152fe-db14-4146-92c6-1b161986dda4" expression="#[vars.dwSelector]"/>
+		<logger level="INFO" doc:name="payload" doc:id="e4101927-79bf-43ef-a22f-682960cdfd00" message="#[payload]"/>
+		<until-successful maxRetries="3" doc:name="Until Successful" doc:id="d8da94b5-a9e8-4ce3-88d5-caf31f4dba6d" millisBetweenRetries="5000">
+			<http:request doc:name="s-sap client" doc:id="f52c597b-a502-4688-8496-ab4a9330b8c5" config-ref="HTTP_Request_configuration_s-sap" method="POST" path="${s-sap.basePath}${s-sap.client.path}" target="respSap" />
+		</until-successful>
+		<logger level="INFO" doc:name="respSap" doc:id="1de94867-d607-4dca-8b63-03c47a64a291" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.respSap]"/>
+		<ee:transform doc:name="in/out SAP" doc:id="3a3c0b9a-2cbc-4b97-a2ba-ffff8c25275e" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="inputSapXML" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.respSap."input"]]></ee:set-variable>
+				<ee:set-variable variableName="outputSapXML" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.respSap."output"]]></ee:set-variable>
+				<ee:set-variable variableName="outputSapJSON" ><![CDATA[%dw 2.0
+output application/json
+---
+read(vars.respSap."output",'application/xml').export]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="f0cb5b4a-9bff-4754-a643-21f16b0b3e9b" >
+			<when expression='#[vars.objectType == "Account-Insert" or vars.objectType == "Tiernda_Obra__c-Insert"]'>
+				<choice doc:name="Choice" doc:id="475bf495-f00a-4389-8f12-c77886da24c7">
+			<when expression="#[vars.outputSapJSON.E_KUNNR != null]">
+				<logger level="INFO" doc:name="Insert OK" doc:id="a420a9cc-106b-496d-8e3b-cf4b5bd289bc" message="Insert OK" />
+				<ee:transform doc:name="Update SF" doc:id="56f76e87-eb6e-447f-8193-c00ee95a40cd">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import substring from dw::core::Strings
+output application/json
+---
+[{
+	"Id":vars.sfId,
+	"VLC_Codigo_Respuesta_SAP__c": "0",
+	"Cod_Cliente__c": vars.outputSapJSON.E_KUNNR as String,
+	"VLC_Descripcion_Respuesta_SAP__c": p('sfToSap.log__c.respuestaServicio.' ++ vars.objectType) ++ (now() as String {format: "dd-MM-yyyy"}),
+	"VLC_Estado_Envio_a_SAP__c": "Exitoso",
+	"recordtype.Name": if(vars.sfRecord.recordType.Name == "Cuenta para Cotizar") "Cuenta General" else vars.sfRecord.recordType.Name
+}]]]></ee:set-payload>
+					</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="sfError" ><![CDATA[%dw 2.0
+output application/json
+---
+"0"]]></ee:set-variable>
+							</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="Insert NOK" doc:id="3aff4000-9f1a-4085-9072-f61c50ac2f74" message="Insert NOK" />
+				<ee:transform doc:name="Update SF" doc:id="3b9966e9-8b96-4831-801d-8f803c407537">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+import substring from dw::core::Strings
+output application/json
+---
+[{
+	"Id":vars.sfId,
+	"VLC_Codigo_Respuesta_SAP__c": "010",
+	"VLC_Descripcion_Respuesta_SAP__c": substring(vars.outputSapJSON.E_MSJ,0,254),
+	"VLC_Estado_Envio_a_SAP__c": "Error"
+}]]]></ee:set-payload>
+					</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="sfError" ><![CDATA[%dw 2.0
+output application/json
+---
+"1"]]></ee:set-variable>
+							</ee:variables>
+				</ee:transform>
+			</otherwise>
+		</choice>
+			</when>
+			<when expression='#[vars.objectType == "Account-Update" or vars.objectType == "Tiernda_Obra__c-Update"]'>
+				<choice doc:name="Choice" doc:id="224e7b19-6c9f-462b-9b69-3ed4e199c69c" >
+					<when expression='#[vars.outputSapJSON.E_MSJ contains ("modificado correctamente")]' >
+						<logger level="INFO" doc:name="Update OK" doc:id="c9475ce0-ce25-4720-ae00-870dc763c00a" message="Update OK" />
+						<ee:transform doc:name="Update SF" doc:id="e903ba9c-86be-4ab9-a839-2420168c8399" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+import substring from dw::core::Strings
+output application/json
+---
+vars.sfField_History__c map () -> {
+    "Id": $.Id,
+    "VLC_Detalle_Estado__c": substring(vars.outputSapJSON.E_MSJ,0,254),
+    "VLC_Estado__c": "Sincronizado",
+//    "VLC_Fecha_Envio__c": now() as DateTime,
+    "VLC_External_ID__c": $.Id
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="sfObject" ><![CDATA[%dw 2.0
+output application/json
+---
+"Field_History__c"]]></ee:set-variable>
+								<ee:set-variable variableName="sfError" ><![CDATA[%dw 2.0
+output application/json
+---
+"0"]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</when>
+					<otherwise >
+						<logger level="INFO" doc:name="Update NOK" doc:id="b986a434-c3c4-4ded-afdb-a13d196ae6ed" message="Update NOK" />
+						<ee:transform doc:name="Update SF" doc:id="d52731db-22d7-4c69-bb5d-c8258ee1ce9e" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+import substring from dw::core::Strings
+output application/json
+---
+vars.sfField_History__c map () -> {
+    "Id": $.Id,
+    "VLC_Detalle_Estado__c": substring(vars.outputSapJSON.E_MSJ,0,254),
+    "VLC_Estado__c": "Error",
+//    "VLC_Fecha_Envio__c": now() as DateTime
+}]]></ee:set-payload>
+							</ee:message>
+							<ee:variables >
+								<ee:set-variable variableName="sfObject" ><![CDATA[%dw 2.0
+output application/json
+---
+"Field_History__c"]]></ee:set-variable>
+								<ee:set-variable variableName="sfError" ><![CDATA[%dw 2.0
+output application/json
+---
+"1"]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</when>
+		</choice>
+		<logger level="INFO" doc:name="payload" doc:id="a70f8718-11ad-418c-bb6d-cd0affcb51ca" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+		<salesforce:update doc:name="sfObject" doc:id="1e905373-a254-4b35-bc92-6db91a19f79a" config-ref="Salesforce_Config" type="#[vars.sfObject]" />
+		<logger level="INFO" doc:name="SF log" doc:id="24be9b3a-5079-4464-ad17-a9b2b7cf6164" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+		<ee:transform doc:name="Create SF Log__c" doc:id="8954ad18-6f49-4398-ad28-d99b246b8196">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+fun trunc130 (value) = if((!isEmpty(value)) and (sizeOf(value) > 130000)) value[0 to 130000] else value
+---
+[{
+	"Name": p('sfToSap.log__c.Name.' ++ vars.objectType),
+	"Url_servicio__c": p('sfToSap.log__c.Url_servicio__c.' ++ vars.objectType),
+	"ExternalID__c": vars.sfId,
+    "Error_Message__c": vars.sfError,
+    "RespuestaServicio__c": vars.outputSapXML,
+    "PeticionServicio__c": vars.inputSapXML
+}]]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+		<logger level="INFO" doc:name="payload" doc:id="4cc26e6d-d8a5-4416-bf8a-96494ce30c52" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+		<salesforce:create type="Log__c" doc:name="Log__c" doc:id="98524bd5-0211-4726-a974-7bbacb63e611" config-ref="Salesforce_Config">
+				</salesforce:create>
+		<logger level="INFO" doc:name="SF log" doc:id="f1d5b9ba-cb18-4d50-af7f-fd37417a3f56" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+	</flow>
+	<!-- [STUDIO:"s-salesforceFlow1"]<flow name="s-salesforceFlow1" doc:id="d2845412-034b-45bc-b664-7d9053369cf5" >
+		<scheduler doc:name="Scheduler" doc:id="cc8016bc-c788-4c42-b8a1-02820043c4ca" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="1" startDelay="1" timeUnit="DAYS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<set-payload value='#[{&#10;  "eventId": "bb6e35d9-4167-4ad6-b206-a4dc9dc90175",&#10;  "replayId": 3655377,&#10;  "event": {&#10;    "CreatedDate": 1.77870205015E+12,&#10;    "CreatedById": "005Ei00000ax24WIAQ",&#10;    "Id__c": "a00Ei00000ghlGPIAY",&#10;    "Operation__c": "Update",&#10;    "sObject__c": "Tiernda_Obra__c"&#10;  }&#10;}&#93;' doc:name="Set Payload" doc:id="08740868-65b2-4bfe-9a8d-85d08015df5a" />
+		<flow-ref doc:name="sfClient" doc:id="f9dc36dd-5973-40a6-8e61-69a2fb343334" name="Send_Client"/>
+	</flow> [STUDIO] -->
+</mule>

@@ -1,0 +1,737 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<sub-flow name="sendContacts_subFlow" doc:id="2ffa89eb-639d-435c-8630-57460c407cdd" >
+		<until-successful maxRetries="3" doc:name="Until Successful" doc:id="6047a075-e3b1-46c1-94da-52c8c355bbd1" millisBetweenRetries="5000">
+			<salesforce:query-all doc:name="Query all" doc:id="cfc7ac05-7bca-4d85-ade6-29ac70d23013" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query><![CDATA[#[p('salesforce.query.importContacts')]]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+		</until-successful>
+		<logger level="INFO" doc:name="payload" doc:id="8a1c6ff9-0b66-4ee9-b412-34e7a7120cfe" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]"/>
+		<choice doc:name="Choice" doc:id="458cc046-3be7-4f29-8681-a46fade8ad9f" >
+			<when expression="#[!isEmpty(payload)]">
+				<ee:transform doc:name="Format Brevo Req" doc:id="193e69fc-059a-4ff9-892e-cc37a8eb3c5a">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+var contactMap = payload map () -> {
+	"email": $.Email default "",
+ 	"id": $.Id default "",
+	"nombre": $.FirstName default "",
+	"apellido": $.LastName default "",
+	"cargo": $.Title default "",
+	"ownerEmpresa": $.Propietario_Cuenta_asociada__c default "",
+	"area": $.rea_de_Trabajo_consolidado__c default "",
+	"tipoCuenta": $.Tipo_de_Cuenta_Asociada__c default "",
+	"rut": $.Rut__c default "",
+	"empresa": $.Account.Name default "",
+	"ownerContacto": $.Owner.Name default "",
+	"createdDate": $.CreatedDate  default "",
+	"phone": $.Phone default "",
+	"mobilePhone": $.Phone default ""
+}
+---
+{
+	"listIds": p('brevo.listIds.marketing') splitBy (",") map ($ as Number ),
+	"contacts": contactMap
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<logger level="INFO" doc:name="payload" doc:id="2c4b4847-de30-4c42-a7de-308213b8c645" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+				<flow-ref doc:name="importContacts_subFlow" doc:id="a5cbd290-c0ac-4215-bea4-76ec16b891ee" name="brevoImportContacts_subFlow"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="No records" doc:id="3e493bcb-e48d-4b45-862c-e82b7cf839e2" message="No records" />
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="sendSurvey_subFlow" doc:id="dcc0c713-ccbd-4d4c-8e06-d7bdff78343b" >
+		<parallel-foreach doc:name="Parallel For Each p('survey.entity')" doc:id="73b47ca7-05ff-4803-bfba-5292bc46385b" collection="#[p('survey.entity') splitBy &quot;,&quot;]" maxConcurrency="1">
+			<logger level="INFO" doc:name="START" doc:id="3208b9d7-0455-4dbe-90dd-cc7987653615" message='#["START " ++ payload]'/>
+			<ee:transform doc:name="objectType" doc:id="0af3512a-1cfc-40f1-9745-272d439a79bd" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="objectType" ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<ee:transform doc:name="Init Vars" doc:id="7e4d0ecd-cd89-493d-9e3a-7c63f01026df" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="sfQuery" ><![CDATA[%dw 2.0
+output application/json
+---
+p('survey.query.' ++ vars.objectType)]]></ee:set-variable>
+					<ee:set-variable variableName="dwSelector" ><![CDATA[%dw 2.0
+output application/java 
+var fileName= "modules/survey/$(vars.objectType).dwl"
+---
+readUrl("classpath://" ++ fileName,"text/plain")]]></ee:set-variable>
+					<ee:set-variable variableName="uriParams" ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"survey_type": vars.objectType
+}]]></ee:set-variable>
+					<ee:set-variable variableName="sfUrl" ><![CDATA[%dw 2.0
+output application/json
+---
+p('survey.url.' ++ vars.objectType)]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<until-successful maxRetries="3" doc:name="Until Successful" doc:id="13a9f47e-6cf1-4c49-83d7-8b6fd5889973" millisBetweenRetries="5000">
+					<salesforce:query-all doc:name="SF URL" doc:id="f01b48cb-07c6-4c11-9c52-4dd653e2077a" config-ref="Salesforce_Config" target="sfUrl" targetValue="#[payload[0].InvitationLink]">
+						<salesforce:salesforce-query><![CDATA[#[vars.sfUrl]]]></salesforce:salesforce-query>
+					</salesforce:query-all>
+				</until-successful>
+			<logger level="DEBUG" doc:name="sfUrl" doc:id="b1e5bc31-5ee0-4b21-b8d5-76134c7833ca" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfUrl]" />
+			<until-successful maxRetries="3" doc:name="Until Successful" doc:id="66aaa116-2660-49fe-98ba-4461b847b77f" millisBetweenRetries="5000">
+				<salesforce:query-all doc:name="Survey records" doc:id="2ea5c680-4609-4d78-bc0c-97fbc77860cc" config-ref="Salesforce_Config">
+				<salesforce:salesforce-query><![CDATA[#[vars.sfQuery]]]></salesforce:salesforce-query>
+			</salesforce:query-all>
+			</until-successful>
+			<logger level="INFO" doc:name="sizeOf(payload)" doc:id="a41a904b-1272-4ac0-866d-1a929a004bdf" message='#["Records count: " ++ sizeOf(payload)]'/>
+			<logger level="DEBUG" doc:name="payload" doc:id="2bc58341-f3b7-4577-b52b-c0e0b9e942a9" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+			<choice doc:name="Choice" doc:id="58b421bb-56e8-404e-a837-c5e7b0a40095" >
+				<when expression="#[!isEmpty(payload) and !isEmpty(vars.sfUrl)]">
+					<logger level="INFO" doc:name="Logger" doc:id="e8f1722b-7bed-40ce-a2ec-d9a83ad000b3" message="Sending records to Brevo"/>
+					<ee:dynamic-evaluate doc:name="dwSelector" doc:id="f3474b36-74c2-426e-9865-769ced2b3057" expression="#[vars.dwSelector]" />
+					<logger level="INFO" doc:name="sizeOf(payload)" doc:id="b9ba4901-7a2c-46f3-9d78-f0cc6e8117dd" message='#["Records count filtered by email: " ++ sizeOf(payload.surveyRecords)]' />
+					<logger level="DEBUG" doc:name="payload" doc:id="65287b67-0ea3-4fec-a3ba-1c05179ccc59" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+					<flow-ref doc:name="brevoSendSurvey_subFlow" doc:id="e94e23ac-1eb4-4500-80f0-39a1ab533a11" name="brevoSendSurvey_subFlow"/>
+				</when>
+			</choice>
+			<logger level="INFO" doc:name="END" doc:id="0560e0bb-700e-479c-9f6a-4d8f503a8175" message='#["END " ++ vars.objectType]' />
+		</parallel-foreach>
+	</sub-flow>
+	<sub-flow name="lead_Shopify_subFlow" doc:id="09872e84-d5e6-440b-adc9-b2f72dc553db" >
+		<logger level="INFO" doc:name="sizeOf(payload)" doc:id="b9a966d6-6434-4005-9f7d-3dbefa955540" message='#["Received " ++ sizeOf(payload) ++ " Records"]'/>
+		<ee:transform doc:name="Query IDs Lead" doc:id="2d1ac34a-d95d-4981-b836-a7340795e956" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="queryLeadId" ><![CDATA[%dw 2.0
+output application/json
+---
+"SELECT Id, Id_Commerce__c, Status, IsConverted, Email FROM Lead WHERE Id_Commerce__c IN ('" ++ (
+	if(sizeOf(payload) > 0)
+		payload map(
+			$.Id_Commerce__c
+		) joinBy "','"
+	else " "
+) ++ "')"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="DEBUG" doc:name="queryLeadId" doc:id="0bd24ace-4b1e-4ab1-b70c-48f35e8ca4c5" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.queryLeadId]"/>
+		<salesforce:query-all doc:name="Query all" doc:id="2f9b0242-eff4-4b43-9ac7-ecfdcf455eeb" config-ref="Salesforce_Config" target="listLeadId">
+			<salesforce:salesforce-query ><![CDATA[#[vars.queryLeadId]]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+		<logger level="DEBUG" doc:name="listLeadId" doc:id="cccddee0-b2f6-433a-b46b-0eef6d6baf56" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.listLeadId]"/>
+		<ee:transform doc:name="dataToSalesforce - Filter Status" doc:id="9fb128d1-903c-410f-8b35-2cc36fb3db19">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var STATUS=["Abierto","Sin Gestion","Interesado"]
+---
+//payload map () -> (
+//    $ ++ {"Status": (listLeadId filter (item,index) -> (item.Id_Commerce__c == $.Id_Commerce__c))[0].Status default ""}
+//)
+payload filter (item1) -> (sizeOf(vars.listLeadId filter (item2) -> (item2.Id_Commerce__c == item1.Id_Commerce__c)) == 0) or (sizeOf(vars.listLeadId filter (item2) -> ((item2.Id_Commerce__c == item1.Id_Commerce__c) and (STATUS contains item2.Status))) > 0)
+]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="sfExtId"><![CDATA[%dw 2.0
+output application/java
+---
+p('ecommerce.lead.sfExtId')]]></ee:set-variable>
+				<ee:set-variable variableName="sfObject"><![CDATA[%dw 2.0
+output application/java
+---
+p('ecommerce.lead.sfObject')]]></ee:set-variable>
+				<ee:set-variable variableName="header"><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"AssignmentRuleHeader": {
+		"assignmentRuleId": "01Q3m000000ks8WEAQ"
+	}
+}
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="dataToSalesforce - Add RT" doc:id="9ae630a7-1bfb-44e0-a568-b89247e5c60e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map () -> ($ ++ {"RecordType": {"Name": "Prospecto VolcanPro"}})]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="sizeOf(dataToSalesforce)" doc:id="0bbb98ec-5606-4752-9dcf-64416039df12" message='#["Send to Salesforce - " ++ sizeOf(payload) ++ " Records"]' />
+		<salesforce:upsert doc:name="Upsert" doc:id="f70241be-6eab-499b-8f70-bdff793c0983" config-ref="Salesforce_Config" objectType="#[vars.sfObject]" externalIdFieldName="#[vars.sfExtId]" target="dataToSalesforce" headers="#[vars.header]">
+		</salesforce:upsert>
+		<!-- [STUDIO:"Create"]<salesforce:create doc:name="Create" doc:id="79e18ce7-c669-4f84-b7ec-3e7fbcbaa060" config-ref="Salesforce_Config" type="#[vars.sfObject&#93;" headers="#[payload.headers&#93;" target="dataToSalesforce"/> [STUDIO] -->
+		<ee:transform doc:name="JSON" doc:id="26f3956d-9dff-444f-8f79-0d666f3c200e">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map () -> (
+    $ ++ {"Id": vars.dataToSalesforce.items[$$].payload.id default ""} ++ {"Status": vars.dataToSalesforce.items[$$].successful default ""} ++ {"Error": vars.dataToSalesforce.items[$$].message default ""}
+)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="lead_GFK_subFlow" doc:id="ae375995-6b82-4dc1-9e2c-1f124d41242b" >
+		<logger level="INFO" doc:name="sizeOf(payload)" doc:id="83b39f69-9a3b-48bd-b449-58fde2bba970" message='#["Received " ++ sizeOf(payload.data) ++ " Records"]' />
+		<flow-ref doc:name="getComunas_subFlow" doc:id="fb972e41-7f4f-41a8-9aef-c04699ea04a4" name="getComunas_subFlow" target="sfComunas" />
+		<ee:transform doc:name="dataToSalesforce - Add RT" doc:id="54a02dc1-46ea-4caa-9e28-81c90d8760de">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="sfExtId"><![CDATA[%dw 2.0
+output application/java
+---
+p('ecommerce.leadGFK.sfExtId')]]></ee:set-variable>
+				<ee:set-variable variableName="sfObject"><![CDATA[%dw 2.0
+output application/java
+---
+p('ecommerce.leadGFK.sfObject')]]></ee:set-variable>
+				<ee:set-variable variableName="dataToSalesforce" ><![CDATA[%dw 2.0
+import * from dw::util::Values
+output application/json
+---
+payload.data map (item,index) -> (
+    (item 
+    update ("Region__c") with ((vars.sfComunas filter (upper($.comuna) == upper(item.Comuna_Zona_de_transporte__c)))[0].region default "")
+    update ("Comuna_Zona_de_transporte__c") with ((vars.sfComunas filter (upper($.comuna) == upper(item.Comuna_Zona_de_transporte__c)))[0].comuna default "")
+    )
+    ++ {"RecordType.Name": "Prospecto GFK"}
+    ++ {"Status": "Abierto"}
+    ++ {"LeadSource": "GFK"}
+    )]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="sizeOf(dataToSalesforce)" doc:id="3f1aef7b-f464-4d66-bef6-81b38eb1b459" message='#["Send to Salesforce - " ++ sizeOf(vars.dataToSalesforce) ++ " Records"]' />
+		<salesforce:create-job-bulk-api-v2 doc:name="Create job bulk api v 2" doc:id="3493ccb6-4cd8-4afc-9da4-1be324f09774" config-ref="Salesforce_Config" objectType="#[vars.sfObject]" externalIdFieldName="#[vars.sfExtId]" operation="upsert" target="sfJob" assignmentRuleId="01Q3m000000ks8WEAQ">
+			<salesforce:s-objects ><![CDATA[#[%dw 2.0
+output application/csv headerLineNumber = 0 , header = true , lineSeparator = "\n" , quoteValues = true , quoteHeader = true, encoding= 'UTF-8', escape="\""
+---
+vars.dataToSalesforce]]]></salesforce:s-objects>
+		</salesforce:create-job-bulk-api-v2>
+		<logger level="INFO" doc:name="Job Status" doc:id="cad85239-4c66-4a5f-ac57-27f90f711a51" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfJob]"/>
+		<ee:transform doc:name="Wait 10000" doc:id="808b22a1-1562-4d2a-a7cc-60df2da5c569" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="ignore" ><![CDATA[%dw 2.0
+import wait from dw::Runtime
+output application/java
+---
+{} wait 10000]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<until-successful maxRetries="${ecommerce.leadGFK.retry}" doc:name="Until Successful" doc:id="6004b774-eac3-4cb2-ae92-72229fbb7dfb" millisBetweenRetries="${ecommerce.leadGFK.interval}">
+			<salesforce:get-job-state-bulk-api-v2 doc:name="Get job state bulk api v 2" doc:id="69848eaa-e01e-45b5-ab6c-2ef50cb80ea1" config-ref="Salesforce_Config" id="#[vars.sfJob.Id]"/>
+			<choice doc:name="Choice" doc:id="27fb97c2-d8a3-4d76-97b0-38f09f7482d3">
+			<when expression="#[payload.state == 'InProgress' or payload.state == 'UploadComplete' or payload.state == 'Open']">
+				<logger level="INFO" doc:name="SF Job Status" doc:id="69ff8518-7f21-4406-ba00-ae9b7a99b564" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload.state]" />
+				<raise-error doc:name="Raise error" doc:id="ea242ae4-6eb4-4437-a143-262399ac7466" type="ANY" description="Job not finished" />
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="SF Job Status" doc:id="682b0889-d935-4726-ba34-a06919bfdebc" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />
+			</otherwise>
+		</choice>
+		</until-successful>
+		<choice doc:name="Choice" doc:id="fe707dff-7bbf-4cca-9c2c-d993d2aef21b">
+				<when expression="#[payload.state == 'JobComplete']">
+				<salesforce:retrieve-job-failed-results-bulk-v2 doc:name="Retrieve job failed results bulk v 2" doc:id="f1c6d6bb-b158-4d9d-9b4d-a78e87821d52" config-ref="Salesforce_Config" id="#[vars.sfJob.Id]"/>
+				<ee:transform doc:name="Error list" doc:id="1f97860f-e531-406f-a46d-959b1f334f01" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Log Failed Records" doc:id="bd802eee-66b4-4c49-944d-db5e6a0bb6f9" message="#[%dw 2.0&#10;import * from dw::core::Arrays&#10;output application/json&#10;---&#10;take(payload,50)]"/>
+			</when>
+			</choice>
+	</sub-flow>
+	<sub-flow name="getQuote_subFlow" doc:id="0e55fc4a-1012-4ae9-a58d-a97aff779acd" >
+		<ee:transform doc:name="Query Get Quotes" doc:id="33307485-a4ea-4a8c-8adb-533907427e72" >
+			<ee:message />
+			<ee:variables >
+				<ee:set-variable variableName="queryGetQuote" ><![CDATA[%dw 2.0
+output application/json
+---
+"SELECT Id, VCPQ_Id_Commerce__c FROM SBQQ__Quote__c WHERE VCPQ_Id_Commerce__c != NULL AND isDeleted = false ORDER BY VCPQ_Id_Commerce__c DESC LIMIT " ++ vars.queryParams.limit]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="DEBUG" doc:name="queryGetQuote" doc:id="e93ad4a6-f817-41d7-8904-6986115bd6bd" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.queryGetQuote]" />
+		<salesforce:query-all doc:name="queryGetQuote" doc:id="0d4e1b85-b655-4afb-b921-dc097c51edd9" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[#[vars.queryGetQuote]]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+		<ee:transform doc:name="JSON" doc:id="2d1cdee4-7370-4761-a944-046d8212da68">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="postQuote_subFlow" doc:id="cb33ce73-65ee-476c-a7a6-317b4b15bfa1" >
+		<choice doc:name="Choice" doc:id="4ebf433b-9bbb-4f5d-98be-d6bb5b90deb4" >
+			<when expression="#[!isEmpty(payload.account_Rut__c)]">
+				<ee:transform doc:name="Query Get Rut" doc:id="fc79b420-a6b0-4fc9-9ac3-f8722f7cf456">
+			<ee:message>
+			</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="sfAccount" ><![CDATA[%dw 2.0
+output application/json
+---
+"SELECT id, Rut__c, RecordType.Name FROM Account WHERE isDeleted = false AND Rut__c = '" ++ (payload.account_Rut__c replace "." with ("")) ++ "'"
+]]></ee:set-variable>
+					</ee:variables>
+		</ee:transform>
+				<salesforce:query-all doc:name="sfAccount" doc:id="f1f6a1f7-18e3-4622-9f9e-63cab21edfd9" config-ref="Salesforce_Config" target="sfAccount">
+					<salesforce:salesforce-query ><![CDATA[#[vars.sfAccount]]]></salesforce:salesforce-query>
+				</salesforce:query-all>
+				<logger level="INFO" doc:name="sfAccount" doc:id="ba1c75ea-564d-4b2e-8f79-5a30ca8f7fba" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfAccount]"/>
+				<choice doc:name="Choice Account" doc:id="20d7d23a-8bf0-4235-aeab-baa24ee7c1fa" >
+					<when expression='#[!isEmpty(vars.sfAccount) and vars.sfAccount[0].RecordType.Name != "Cuenta Para Cotizar"]'>
+						<ee:transform doc:name="sfAccount.Id" doc:id="4b44c85b-dc71-4024-9034-1ad96667cbd4">
+							<ee:message>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="sfAccount"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfAccount[0].Id]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<logger level="INFO" doc:name="Rut Exists" doc:id="6b8ba19b-d7e4-43aa-8a09-80b4722055c9" message='#[%dw 2.0&#10;output application/json&#10;---&#10;"Rut " ++ payload.account_Rut__c ++ " exists in SF - Id: " ++ vars.sfAccount]'/>
+					</when>
+					<otherwise>
+						<logger level="INFO" doc:name="Create Rut" doc:id="5be9c7f6-8019-4cbe-b0a2-7b56c8affe9b" message='#[%dw 2.0&#10;output application/json&#10;---&#10;"Create Rut " ++ payload.account_Rut__c ++ " in SF"]'/>
+						<flow-ref doc:name="getComunas_subFlow" doc:id="c8a6a478-826e-47b5-b292-18539cc4ad2f" name="getComunas_subFlow" target="sfComunas"/>
+						<ee:transform doc:name="sfAccount" doc:id="c27ba387-22ec-497b-a19d-5d317f9ac000">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable resource="modules/salesforce/sfAccount.dwl" variableName="sfAccount" />
+					</ee:variables>
+				</ee:transform>
+						<logger level="DEBUG" doc:name="sfAccount" doc:id="0336832b-105d-402b-85c1-27721aff4c4a" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfAccount]"/>
+						<salesforce:upsert doc:name="sfAccount" doc:id="7e561e91-ae8e-4215-9033-bf0308087dc1" config-ref="Salesforce_Config" objectType="Account" externalIdFieldName="Rut__c" target="sfAccount">
+							<salesforce:records ><![CDATA[#[vars.sfAccount]]]></salesforce:records>
+						</salesforce:upsert>
+						<!-- [STUDIO:"sfAccount"]<salesforce:create doc:name="sfAccount" doc:id="0a1c6195-b9ee-44c2-a8f0-b9a2c9e942bb" config-ref="Salesforce_Config" type="Account" target="sfAccount">
+							<salesforce:records ><![CDATA[#[vars.sfAccount&#93;&#93;&#93;></salesforce:records>
+						</salesforce:create> [STUDIO] -->
+						<logger level="INFO" doc:name="sfAccount" doc:id="986e08a4-8a2e-4f8e-8852-92a2d01ad63b" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfAccount]" />
+						<choice doc:name="Choice Account" doc:id="68f5270a-a6b7-4c95-abe6-88e336812093">
+							<when expression="#[vars.sfAccount.successful == false]">
+								<ee:transform doc:name="errorPayload" doc:id="3174406d-a83e-4fa3-b53c-89fb7de71d0e">
+									<ee:message>
+									</ee:message>
+									<ee:variables >
+										<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfAccount]]></ee:set-variable>
+									</ee:variables>
+								</ee:transform>
+								<raise-error doc:name="Raise error" doc:id="29c29296-e97c-460e-81ea-f017dd97f071" type="APP:QUOTE" description="#[vars.sfAccount.items[0].message]"/>
+							</when>
+						</choice>
+						<ee:transform doc:name="sfAccount Id" doc:id="dd521d46-8fca-4a9c-926c-7f5636b93c15">
+							<ee:message>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="sfAccount"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfAccount.items[0].id]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+				<ee:transform doc:name="Query Get Contact" doc:id="e8c82ac3-e84a-485d-a095-963c5e52d36c">
+					<ee:message>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="sfContact" ><![CDATA[%dw 2.0
+output application/json
+---
+"SELECT id FROM Contact WHERE isDeleted = false AND Email = '" ++ trim(payload.contact_Email) ++ "'"
+]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<salesforce:query-all doc:name="sfContact" doc:id="30fc8a66-f8d8-409b-838d-acb848622322" config-ref="Salesforce_Config" target="sfContact" targetValue="#[payload[0].Id]">
+					<salesforce:salesforce-query><![CDATA[#[vars.sfContact]]]></salesforce:salesforce-query>
+				</salesforce:query-all>
+				<choice doc:name="Choice Contact" doc:id="cdf8027b-85f5-47ff-af2a-c8e8653eadb1">
+					<when expression="#[!isEmpty(vars.sfContact)]">
+						<logger level="INFO" doc:name="Contact Exists" doc:id="969c271c-38d0-42a1-85e7-2832e0c31bb7" message='#[%dw 2.0&#10;output application/json&#10;---&#10;"Contact " ++ payload.contact_Email ++ " exists in SF - Id: " ++ vars.sfContact]'/>
+					</when>
+					<otherwise >
+						<logger level="INFO" doc:name="Create Contact" doc:id="30da1fe4-7ea2-4b8a-9019-1d5a5b232792" message='#[%dw 2.0&#10;output application/json&#10;---&#10;"Create Contact " ++ payload.contact_Email ++ " in SF"]'/>
+						<ee:transform doc:name="sfContact" doc:id="351cb0c1-bc3e-4c8a-9973-f063203c04fc" >
+							<ee:message >
+							</ee:message>
+							<ee:variables >
+								<ee:set-variable resource="modules/salesforce/sfContact.dwl" variableName="sfContact" />
+							</ee:variables>
+						</ee:transform>
+						<logger level="DEBUG" doc:name="sfContact" doc:id="67baccd7-603a-46bd-a13a-b8ea5e6c7f43" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfContact]" />
+						<salesforce:create type="Contact" doc:name="sfContact" doc:id="c6ed6093-49df-4c5e-8bf8-9d812f598760" config-ref="Salesforce_Config" target="sfContact" >
+							<salesforce:records ><![CDATA[#[vars.sfContact]]]></salesforce:records>
+						</salesforce:create>
+						<logger level="INFO" doc:name="sfContact" doc:id="24a2da73-b283-4b54-a7aa-aaf391751e27" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfContact]" />
+						<choice doc:name="Choice Contact" doc:id="a4c2e52d-e5b4-41d8-a083-e5f42cefe754" >
+							<when expression="#[vars.sfContact.successful == false]" >
+								<ee:transform doc:name="errorPayload" doc:id="0a238cde-8180-47f4-8095-1a872f9455ba" >
+									<ee:message />
+									<ee:variables >
+										<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfContact]]></ee:set-variable>
+									</ee:variables>
+								</ee:transform>
+								<raise-error doc:name="Raise error" doc:id="7c1fab32-e1ec-42cc-b7e4-2117762ad0a5" type="APP:QUOTE" description="#[vars.sfContact.items[0].message]" />
+							</when>
+						</choice>
+						<ee:transform doc:name="sfContact Id" doc:id="4dfe4c14-d15b-4568-ba16-d35b40fbb320" >
+							<ee:message />
+							<ee:variables >
+								<ee:set-variable variableName="sfContact" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfContact.items[0].id]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+					</otherwise>
+				</choice>
+				<ee:transform doc:name="Direcciones iguales ?" doc:id="fb96cead-a053-4e23-a3d8-bb4e3077f091">
+					<ee:message>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="igualDireccion" ><![CDATA[%dw 2.0
+output application/json
+
+fun removeSpecialChar(valor) = valor replace "/" with ("") replace " " with ("") replace "(" with ("") replace ")" with ("") replace ";" with ("") replace "." with ("") replace "," with ("") replace "'" with ("") replace "avenida" with ("av") replace "avda" with ("av") replace "á" with ("a") replace "é" with ("e") replace "í" with ("i") replace "ó" with ("o") replace "ú" with ("u")
+---
+if ((!isEmpty(payload.tiendaObra_Calle_Numero__c) and !isEmpty(payload.tienda_ShippingAdress)) and ((removeSpecialChar(payload.tiendaObra_Calle_Numero__c) contains removeSpecialChar(payload.tienda_ShippingAdress)) or (removeSpecialChar(payload.tienda_ShippingAdress) contains removeSpecialChar(payload.tiendaObra_Calle_Numero__c)))) "igual" else "distinto"]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<choice doc:name="Choice Crear TiendaObra" doc:id="0cbe988e-1c62-47f7-9679-70844eea1ed0">
+					<when expression='#[payload.flagBoletaFactura == "factura" and vars.sfTiendaObra == "distinto"]'>
+						<ee:transform doc:name="Query Get TiendaObra" doc:id="a08b2b78-8002-4a71-933d-b0b6ac25008d">
+							<ee:message>
+							</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="sfTiendaObra"><![CDATA[%dw 2.0
+output application/json
+var direccion = (trim(lower(payload.tienda_ShippingAdress)) default "") replace "/" with ("") replace " " with ("%") replace "." with ("%") replace "," with ("%") replace "'" with ("%") replace "avenida" with ("av") replace "avda" with ("av") replace "á" with ("%") replace "é" with ("%") replace "í" with ("%") replace "ó" with ("%") replace "ú" with ("%")
+---
+"SELECT id, Rut__c, Calle_Numero__c, Cuenta__c FROM Tiernda_Obra__c WHERE (isDeleted = false AND Rut__c = '"
+++ (payload.tiendaObra_RUT__c replace "." with (""))
+++ "' AND Cuenta__c = '"
+++ vars.sfAccount
+++ "') OR (isDeleted = false AND Calle_Numero__c LIKE '%" ++ direccion ++ "%' AND Cuenta__c = '"
+++ vars.sfAccount ++ "')"
+
+//"SELECT id, Rut__c, Calle_Numero__c, Cuenta__c
+//FROM Tiernda_Obra__c 
+//WHERE (isDeleted = false AND Rut__c = '76437320-0' AND Cuenta__c = '001PF00000HdyYoYAJ') OR (isDeleted = false AND Calle_Numero__c LIKE '%doctor%amador%neghme%03639%modulo%9%' AND Cuenta__c = '001PF00000HdyYoYAJ')"]]></ee:set-variable>
+					</ee:variables>
+						</ee:transform>
+						<logger level="INFO" doc:name="sfTiendaObra" doc:id="0614ad54-e636-4360-8709-a87ff38da995" message="#[vars.sfTiendaObra]"/>
+						<salesforce:query-all doc:name="Query all" doc:id="905d5184-5d84-4c09-9415-a8e74aa109ae" config-ref="Salesforce_Config" target="sfTiendaObra" targetValue="#[payload[0].Id]">
+						<salesforce:salesforce-query><![CDATA[#[vars.sfTiendaObra]]]></salesforce:salesforce-query>
+					</salesforce:query-all>
+						<logger level="INFO" doc:name="sfTiendaObra" doc:id="cdd4b16b-1c88-4eb3-bb32-2d50c685c478" message="#[vars.sfTiendaObra]"/>
+						<choice doc:name="Choice" doc:id="553378c3-c966-4753-a869-cc7846354e6b">
+							<when expression='#[!isEmpty(vars.sfTiendaObra)]'>
+						<logger level="INFO" doc:name="TiendaObra Exists" doc:id="3905a052-0243-4f83-8162-5c6b6e103f1c" message='#[%dw 2.0&#10;output application/json&#10;---&#10;"Tienda Obra " ++ payload.tiendaObra_RUT__c ++ " exists in SF - Id: " ++ vars.sfTiendaObra]' />
+					</when>
+					<otherwise>
+						<!-- [STUDIO:"Get Account Owner Query"]<ee:transform doc:name="Get Account Owner Query" doc:id="6f9c2548-98fe-4a4d-b30b-b0c07580dfbb">
+							<ee:message>
+							</ee:message>
+							<ee:variables>
+								<ee:set-variable variableName="sfAccountOwner"><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+"SELECT OwnerId FROM Account WHERE isDeleted = false AND Id = '" ++ (vars.sfAccount) ++ "'"&#93;&#93;></ee:set-variable>
+							</ee:variables>
+						</ee:transform> [STUDIO] -->
+						<!-- [STUDIO:"sfAccountOwner"]<logger level="INFO" doc:name="sfAccountOwner" doc:id="f3383fda-c264-491a-b684-cc7aefd13f6a" message="#[vars.sfAccountOwner&#93;" /> [STUDIO] -->
+						<!-- [STUDIO:"sfAccountOwner"]<salesforce:query-all doc:name="sfAccountOwner" doc:id="ce5ec1a8-dc3e-4f87-a7d1-be3f39ef99d9" config-ref="Salesforce_Config" targetValue="#[payload[0&#93;.OwnerId&#93;" target="sfAccountOwner">
+							<salesforce:salesforce-query><![CDATA[#[vars.sfAccountOwner&#93;&#93;&#93;></salesforce:salesforce-query>
+						</salesforce:query-all> [STUDIO] -->
+						<!-- [STUDIO:"sfAccountOwner"]<logger level="INFO" doc:name="sfAccountOwner" doc:id="8209c90b-fc93-4c7c-9bbc-36ba46eb0458" message="#[vars.sfAccountOwner&#93;" /> [STUDIO] -->
+						<logger level="INFO" doc:name="Create TiendaObra" doc:id="fd79a70f-6c01-4908-bfc0-5c1b19cd0fe6" message='#[%dw 2.0&#10;output application/json&#10;---&#10;"Create Tienda Obra " ++ payload.tiendaObra_RUT__c ++ " in SF"]' />
+						<flow-ref doc:name="getComunas_subFlow" doc:id="cb6d7094-ba8b-49c0-a92d-a2e518e7fa73" name="getComunas_subFlow" target="sfComunas" />
+						<ee:transform doc:name="sfTiendaObra" doc:id="703dae1e-3112-4d91-a76b-cea9a01bea77">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable resource="modules/salesforce/sfTiendaObra.dwl" variableName="sfTiendaObra" />
+					</ee:variables>
+				</ee:transform>
+						<logger level="DEBUG" doc:name="sfTiendaObra" doc:id="138dc023-6a9c-414f-922d-88b80ce4ecfd" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfTiendaObra]" />
+						<salesforce:create type="Tiernda_Obra__c" doc:name="TiendaObra" doc:id="33773879-c710-46c6-883b-94048b24ff00" config-ref="Salesforce_Config" target="sfTiendaObra">
+					<salesforce:records><![CDATA[#[vars.sfTiendaObra]]]></salesforce:records>
+				</salesforce:create>
+						<logger level="INFO" doc:name="sfTiendaObra" doc:id="6e87633a-496f-47bc-a973-037baf5a2d84" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfTiendaObra]" />
+								<choice doc:name="Choice TiendaObra" doc:id="fd879163-e703-4acc-acd3-5a777cc11111">
+							<when expression="#[vars.sfTiendaObra.successful == false]">
+								<ee:transform doc:name="errorPayload" doc:id="8654a74e-0b6f-4dab-b956-bc91be02ed1c">
+							<ee:message />
+							<ee:variables>
+								<ee:set-variable variableName="errorPayload"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfTiendaObra]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+								<raise-error doc:name="Raise error" doc:id="21d128a2-405b-4b29-93ef-adb23546e3e0" type="APP:QUOTE" description="#[vars.sfTiendaObra.items[0].message]" />
+							</when>
+						</choice>
+						<ee:transform doc:name="sfTiendaObra Id" doc:id="e3f79a7f-1f36-4456-abb7-29a81e551557">
+					<ee:message />
+					<ee:variables>
+						<ee:set-variable variableName="sfTiendaObra"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfTiendaObra.items[0].id]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+						<!-- [STUDIO:"Until Successful"]<until-successful maxRetries="10" doc:name="Until Successful" doc:id="dc4bfbb9-cc62-4672-9681-aaea7f4403d3" millisBetweenRetries="15000">
+					<ee:transform doc:name="Query TiendaObra" doc:id="d0935bea-b38e-421b-a372-937568a47550">
+						<ee:message>
+						</ee:message>
+						<ee:variables>
+							<ee:set-variable variableName="sfTiendaObra"><![CDATA[%dw 2.0
+output application/java
+&#45;&#45;-
+"SELECT Id, Cod_Cliente__c FROM Tiernda_Obra__c WHERE Id = '" ++ vars.sfTiendaObra ++ "' and Cod_Cliente__c != null"&#93;&#93;></ee:set-variable>
+						</ee:variables>
+					</ee:transform>
+					<salesforce:query-all doc:name="Query all" doc:id="f5b721f7-14df-4f5d-9d31-423a0e6e1080" config-ref="Salesforce_Config" target="sfTiendaObra">
+						<salesforce:salesforce-query><![CDATA[#[vars.sfTiendaObra&#93;&#93;&#93;></salesforce:salesforce-query>
+					</salesforce:query-all>
+					<choice doc:name="Choice" doc:id="48cc2b5f-1291-43c4-9eef-2aadee0a6610">
+						<when expression="#[isEmpty(vars.sfTiendaObra)&#93;">
+							<raise-error doc:name="Raise error" doc:id="7834448b-5e7c-4b00-8312-f822ec8f888e" type="APP:QUOTE" description="Tienda Obra no disponible" />
+						</when>
+						<otherwise>
+							<logger level="INFO" doc:name="sfTiendaObra" doc:id="fa84a880-e56a-4263-aa0d-5ce50840b931" message="#[%dw 2.0&#10;output application/json&#10;&#45;&#45;-&#10;vars.sfTiendaObra&#93;" />
+						</otherwise>
+					</choice>
+				</until-successful> [STUDIO] -->
+					</otherwise>
+						</choice>
+					</when>
+					<otherwise >
+						<logger level="INFO" doc:name="No crear TiendaObra" doc:id="dc0de50b-4d30-4e76-b52b-64208d9f34d5" message="No crear TiendaObra"/>
+					</otherwise>
+				</choice>
+				<ee:transform doc:name="sfOpportunity" doc:id="9aa7853b-b7a4-4498-8577-0298574cabe3">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable resource="modules/salesforce/sfOpportunity.dwl" variableName="sfOpportunity" />
+					</ee:variables>
+				</ee:transform>
+				<logger level="DEBUG" doc:name="sfOpportunity" doc:id="8f04d279-df77-4dc9-822a-2ea6bc092051" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfOpportunity]" />
+				<salesforce:create doc:name="Opportunity" doc:id="2f4b9bd8-cfd0-40c2-8d60-438a9cebef1d" config-ref="Salesforce_Config" type="Opportunity" target="sfOpportunity">
+					<salesforce:records><![CDATA[#[vars.sfOpportunity]]]></salesforce:records>
+				</salesforce:create>
+				<logger level="INFO" doc:name="sfOpportunity" doc:id="4c6d9523-026d-4710-bad9-36b62e041877" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfOpportunity]" />
+				<choice doc:name="Choice Opportunity" doc:id="d59afcb3-e7d1-4ebe-a993-4c0037b831ba">
+					<when expression="#[vars.sfOpportunity.successful == false]">
+						<ee:transform doc:name="errorPayload" doc:id="f76db24d-d06b-41fe-8af6-5203b19c9690">
+							<ee:message />
+							<ee:variables>
+								<ee:set-variable variableName="errorPayload"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfOpportunity]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<raise-error doc:name="Raise error" doc:id="d5ee84ec-c6c6-46a4-8077-e6db30bbbe44" type="APP:QUOTE" description="#[vars.sfOpportunity.items[0].message]" />
+					</when>
+				</choice>
+				<ee:transform doc:name="sfOpportunity Id" doc:id="05df980f-e2ef-480a-85b3-2274b3959bad">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="sfOpportunity"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfOpportunity.items[0].id]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<salesforce:query-all doc:name="RecordTypeId" doc:id="207a2da6-eedb-43e2-b45e-645e4d96ef8c" config-ref="Salesforce_Config" targetValue="#[payload[0].Id]" target="RecordTypeId">
+					<salesforce:salesforce-query><![CDATA[SELECT Id FROM RecordType WHERE DeveloperName = 'VCPQ_Cotizacion_Workcenter']]></salesforce:salesforce-query>
+				</salesforce:query-all>
+				<ee:transform doc:name="sfQuote" doc:id="92cba822-47fe-490b-b669-7808e6dd069d">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable resource="modules/salesforce/sfQuote.dwl" variableName="sfQuote" />
+					</ee:variables>
+				</ee:transform>
+				<logger level="DEBUG" doc:name="sfQuote" doc:id="dec86dad-7d2b-4484-9913-1d932f570fd3" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfQuote]" />
+				<salesforce:create doc:name="sfQuote" doc:id="6d609e01-9c69-4122-947a-3c3498c7dbbe" config-ref="Salesforce_Config" type="SBQQ__Quote__c" target="sfQuote">
+					<salesforce:records><![CDATA[#[vars.sfQuote]]]></salesforce:records>
+				</salesforce:create>
+				<logger level="INFO" doc:name="sfQuote" doc:id="c3da319d-deff-42c6-a353-b7ad35efc023" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfQuote]" />
+				<choice doc:name="Choice Quote" doc:id="c5fe4913-a6e4-4fea-bb69-cdbca0ded627">
+					<when expression="#[vars.sfQuote.successful == false]">
+						<ee:transform doc:name="errorPayload" doc:id="6e9faed3-85a9-400c-8278-6a7e8e0daf73">
+							<ee:message />
+							<ee:variables>
+								<ee:set-variable variableName="errorPayload"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfQuote]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<raise-error doc:name="Raise error" doc:id="3a7d6be6-7c29-454f-a066-17f97a62526f" type="APP:QUOTE" description="#[vars.sfQuote.items[0].message]" />
+					</when>
+				</choice>
+				<ee:transform doc:name="sfQuote Id" doc:id="8b825457-8e02-41a2-8727-25e15e242683">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="sfQuote"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfQuote.items[0].id]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<ee:transform doc:name="sfQuoteItemLine" doc:id="77fb0b36-c1df-4e4c-b739-fc8862d5565a">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable resource="modules/salesforce/sfQuoteItemLine.dwl" variableName="sfQuoteItemLine" />
+						<ee:set-variable resource="modules/salesforce/sfQuoteItemLine.dwl" variableName="sfQuoteItemLine" />
+					</ee:variables>
+				</ee:transform>
+				<logger level="DEBUG" doc:name="sfQuoteItemLine" doc:id="0aa49cbb-6c2d-458c-9ad4-a82ca484a3e3" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfQuoteItemLine]" />
+				<salesforce:create type="SBQQ__QuoteLine__c" doc:name="sfQuoteItemLine" doc:id="0e5b35be-2633-438d-a407-aa7e1808779e" config-ref="Salesforce_Config" target="sfQuoteItemLine">
+					<salesforce:records><![CDATA[#[vars.sfQuoteItemLine]]]></salesforce:records>
+				</salesforce:create>
+				<logger level="INFO" doc:name="sfQuoteItemLine" doc:id="6c682349-7dcf-4e0c-b9bc-01998d13e7ac" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfQuoteItemLine]" />
+				<choice doc:name="Choice QuoteItem" doc:id="f810f16b-5584-4aad-93f8-23759e5caeb7" >
+					<when expression="#[vars.sfQuoteItemLine.successful == false]">
+						<ee:transform doc:name="errorPayload" doc:id="3bfe0ee1-c4df-4a73-aff7-8955d50a4f7b">
+							<ee:message />
+							<ee:variables>
+								<ee:set-variable variableName="errorPayload"><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfQuoteItemLine]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<raise-error doc:name="Raise error" doc:id="7280cd86-f7d2-4cae-9fd7-3a7e091d8b0b" type="APP:QUOTE" description="#[vars.sfQuoteItemLine.items[0].message]" />
+					</when>
+				</choice>
+				<ee:transform doc:name="sfQuoteShippingLine" doc:id="3ad35e35-dcde-4de2-b3f4-6f5b1093d7d4" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable resource="modules/salesforce/sfQuoteShippingLine.dwl" variableName="sfQuoteShippingLine" />
+					</ee:variables>
+				</ee:transform>
+				<logger level="DEBUG" doc:name="sfQuoteShippingLine" doc:id="01363a08-aaa1-42c7-9a1c-b52c32010b2d" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfQuoteShippingLine]" />
+				<salesforce:create type="SBQQ__QuoteLine__c" doc:name="sfQuoteShippingLine" doc:id="59c79149-b77b-4d0b-9e86-472c54362b67" config-ref="Salesforce_Config" target="sfQuoteShippingLine" >
+					<salesforce:records ><![CDATA[#[vars.sfQuoteShippingLine]]]></salesforce:records>
+				</salesforce:create>
+				<logger level="DEBUG" doc:name="sfQuoteShippingLine" doc:id="8cba7e8a-f87c-4f84-b8e6-9c702df1a1a5" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfQuoteShippingLine]" />
+				<choice doc:name="Choice Shipping" doc:id="53f9bb76-47c1-4489-ae35-d0ce5f3294e7" >
+					<when expression="#[vars.sfQuoteShippingLine.successful == false]">
+						<ee:transform doc:name="errorPayload" doc:id="a1be273e-6d81-4ebf-81fc-d32f06791d88" >
+							<ee:message />
+							<ee:variables >
+								<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfQuoteShippingLine]]></ee:set-variable>
+							</ee:variables>
+						</ee:transform>
+						<raise-error doc:name="Raise error" doc:id="3cb761ff-7587-4f70-9074-0ab2f48a19bb" type="APP:QUOTE" description="#[vars.sfQuoteShippingLine.items[0].message]" />
+					</when>
+				</choice>
+			</when>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="98d80c5e-0731-4db3-ad34-402a2369c741" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+"OK"]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="getComunas_subFlow" doc:id="741b75a8-75e5-4cca-934a-62c356e4e911" >
+		<salesforce:read-metadata type="CustomField" doc:name="Global_Comuna_Zona_de_transporte__c" doc:id="941f8682-a251-47c0-9714-14122b45e261" config-ref="Salesforce_Config" target="sfComunaProvincia" targetValue="#[payload[0]]">
+			<salesforce:full-names><![CDATA[#[["Account.Global_Comuna_Zona_de_transporte__c"]]]]></salesforce:full-names>
+		</salesforce:read-metadata>
+		<salesforce:read-metadata type="CustomField" doc:name="Global_Ciudad__c" doc:id="01b9f0e0-0447-4aac-b0d9-4a9eb0c7dd08" config-ref="Salesforce_Config" target="sfProvinciaRegion" targetValue="#[payload[0]]">
+			<salesforce:full-names ><![CDATA[#[["Account.Global_Ciudad__c"]]]]></salesforce:full-names>
+		</salesforce:read-metadata>
+		<ee:transform doc:name="Map Comuna Provincia Region" doc:id="3b865c59-2969-4548-b56a-ebe6beab6f3a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.sfComunaProvincia.valueSet.valueSettings map (comuna) -> {
+    "comuna": comuna.valueName,
+    "provincia": comuna.controllingFieldValue[0],
+    "region": (vars.sfProvinciaRegion.valueSet.valueSettings filter (provincia) -> (provincia.valueName == comuna.controllingFieldValue[0]))[0].controllingFieldValue[0]
+    }]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<sub-flow name="getProductos_subFlow" doc:id="24a21c3f-032e-4d23-aed9-9f54d5e60bf8" >
+		<ee:transform doc:name="Query Get Product" doc:id="68da4852-2902-4931-93c8-41daec35c679" >
+			<ee:message />
+			<ee:variables >
+				<ee:set-variable variableName="queryGetProduct" ><![CDATA[%dw 2.0
+output application/json
+---
+"SELECT Id, ProductCode, Inventory_Item_Id__c, Factor_Conversion_Commerce__c FROM Product2 WHERE Inventory_Item_Id__c != null AND ProductCode !=null AND IsActive = true AND isDeleted = false AND Factor_Conversion_Commerce__c > 0 AND Factor_Conversion_Commerce__c !=null"
+//"SELECT Id, ProductCode, Inventory_Item_Id__c, Factor_Conversion_Commerce__c FROM Product2 WHERE Inventory_Item_Id__c != null AND ProductCode !=null AND IsActive = true AND isDeleted = false AND Factor_Conversion_Commerce__c > 0 AND Factor_Conversion_Commerce__c !=null AND ProductCode = '5000313'"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="DEBUG" doc:name="queryGetProduct" doc:id="0f7889b6-e5fa-4dff-8837-00c49805e33a" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.queryGetProduct]" />
+		<salesforce:query-all doc:name="queryGetProduct" doc:id="725c9918-9b42-4891-8443-536bd381866d" config-ref="Salesforce_Config" >
+			<salesforce:salesforce-query ><![CDATA[#[vars.queryGetProduct]]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+		<ee:transform doc:name="JSON" doc:id="81ed36f1-9832-4633-a9f0-5fbb1e2feb4a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+</mule>

@@ -1,0 +1,125 @@
+http:
+  host: "0.0.0.0"
+  port: "8090"
+
+timeout:
+  read: "60000"
+  response: "60000"
+  idle: "60000"
+
+survey:
+  entity: "ATCRetail,ATCConstructoras,ATCRegiones,Workcenter"
+  url:
+    ATCRetail: "SELECT InvitationLink FROM SurveyInvitation WHERE Name = 'ATC Retail Enlace Publico' AND Survey.Name = 'ATC - Retail'"
+    ATCConstructoras: "SELECT InvitationLink FROM SurveyInvitation WHERE Name = 'ATC Constructora Enlace Publico' AND Survey.Name = 'ATC - Constructora'"
+    ATCRegiones : "SELECT InvitationLink FROM SurveyInvitation WHERE Name = 'ATC Regiones Enlace Publico' AND Survey.Name = 'ATC - Regiones'"
+    Workcenter: "SELECT InvitationLink FROM SurveyInvitation WHERE Name = 'Workcenter Enlace Publico' AND Survey.Name = 'Workcenter'"  
+  query:
+    ATCRetail: "SELECT Id, FirstName, Email, Tienda_Obra__c, Tienda_Obra__r.Global_regi_n__c FROM Contact WHERE Email != null AND Tienda_Obra__c in (SELECT TiendaObra__c FROM Shopeo__c WHERE TiendaObra__c != null AND CreatedDate = LAST_N_MONTHS:1)"
+    ATCConstructoras: "SELECT Id, FirstName, Email, Title, Tienda_Obra__c, Tienda_Obra__r.Global_regi_n__c FROM Contact Where Email != null AND Tienda_Obra__c in (SELECT Tienda_Obra_asociada__c FROM Visita_T_cnica__c WHERE Tienda_Obra_asociada__c != null AND RecordType.DeveloperName = 'Asistencia_T_cnica' AND CreatedDate = LAST_N_MONTHS:1 AND Tienda_Obra_asociada__r.Global_regi_n__c = 'Metropolitana de Santiago')"
+    ATCRegiones : "SELECT Id, FirstName, Email, Title, Tienda_Obra__c, Tienda_Obra__r.Global_regi_n__c FROM Contact WHERE Email != null AND Tienda_Obra__c in (SELECT Tienda_Obra_asociada__c FROM Visita_T_cnica__c WHERE Tienda_Obra_asociada__c != null AND RecordType.DeveloperName = 'Asistencia_T_cnica' AND CreatedDate = LAST_N_MONTHS:1 AND Tienda_Obra_asociada__r.Global_regi_n__c != 'Metropolitana de Santiago' AND Tienda_Obra_asociada__r.Global_regi_n__c != null)"
+    Workcenter: "SELECT Id, FirstName, Email, Title FROM Contact WHERE Email != null AND Id in (SELECT SBQQ__PrimaryContact__c FROM SBQQ__Quote__c WHERE RecordType.DeveloperName = 'VCPQ_Cotizacion_Workcenter' AND SBQQ__PrimaryContact__c != null AND VCPQ_FechaCierreOportunidad__c = LAST_N_MONTHS:1 AND VCPQ_UrlBoletaFactura__c != null)"
+
+sfToSap:
+  query:
+    Account-Insert: "SELECT recordtype.Name, C_digo_Ramo_global__c, Canal_1_1__c, Canal_1_2__c, Canal_2_1__c, Canal_2_2__c, Canal_3_1__c, Canal_3_2__c, VLC_Calle_Direccion__c, VLC_Numero_Direccion__c, Clasificaci_n_ABC__c, Global_Comuna_Zona_de_transporte__c, Concepto_de_B_squeda_1__c, Concepto_de_B_squeda_2__c, Cond_Pago__c, Condici_n_Expedici_n__c, Cuenta_contable_asociada__c, Grupo_de_cliente__c, Grupo_de_cliente_Distribuidor__c, Grupo_de_tesorer_a__c, Grupo_Estad_stico_Clientes__c, Grupo_Imputaci_n__c, Incoterms__c, Incoterms_parte_2__c, Name, Nombre_de_Fantasia__c, VLC_Codigo_SAP_Usuario__c, Oficina_de_Venta_1__c, Oficina_de_Venta_2__c, Oficina_de_Venta_3__c, Organizaci_n_1__c, Organizaci_n_2__c, Organizaci_n_3__c, Pais__c, Prioridad_Entrega__c, Ramo_c__c, Global_regi_n__c, Rut__c, Tratamiento__c, Zona_de_Venta__c FROM Account WHERE Id = 'REPLACEID'"
+    Account-Update: "SELECT recordtype.Name, Cod_Cliente__c, Canal_1_1__c, Canal_1_2__c, Canal_2_1__c, Canal_2_2__c, Canal_3_1__c, Canal_3_2__c, Organizaci_n_1__c, Organizaci_n_2__c, Organizaci_n_3__c REPLACEFIELDS FROM Account WHERE Id = 'REPLACEID'"
+    Tiernda_Obra__c-Insert: "SELECT recordtype.Name, C_digo_Ramo_global__c, VLC_Calle_Direccion__c, VLC_Numero_Direccion__c, Canal_1_1__c, Canal_1_2__c, Canal_2_1__c, Canal_2_2__c, Canal_3_1__c, Canal_3_2__c, Cod_Cliente_Cuenta__c, Global_Comuna_Zona_de_transporte__c, Concepto_de_B_squeda_1__c, Concepto_de_B_squeda_2__c, Cond_Pago__c, Cuenta_contable_asociada__c, Grupo_de_Clientes__c, Grupo_de_cliente_Distribuidor__c, Grupo_de_imputaci_n__c, Grupo_de_tesorer_a__c, Incoterms_c__c, Incoterms_parte_2__c, VLC_Codigo_SAP_Usuario__c, Name, Nombre_de_Fantasia__c, Oficina_de_Venta_1__c, Oficina_de_Venta_2__c, Oficina_de_Venta_3__c, Organizaci_n_1__c, Organizaci_n_2__c, Organizaci_n_3__c, Pais__c, Prioridad_Entrega__c, Ramo__c, Global_regi_n__c, Rut__c, Tratamiento__c, Zona_de_Venta__c FROM Tiernda_Obra__c WHERE Id = 'REPLACEID'"
+    Tiernda_Obra__c-Update: "SELECT recordtype.Name, Cod_Cliente__c, Canal_1_1__c, Canal_1_2__c, Canal_2_1__c, Canal_2_2__c, Canal_3_1__c, Canal_3_2__c, Organizaci_n_1__c, Organizaci_n_2__c, Organizaci_n_3__c REPLACEFIELDS FROM Tiernda_Obra__c WHERE Id = 'REPLACEID'"
+  log__c:
+    Name:
+      Account-Insert: "Mulesoft - RFC Creacion Cuentas en SAP"
+      Account-Update: "Mulesoft - RFC Actualizacion Cuentas en SAP"
+      Tiernda_Obra__c-Insert: "Mulesoft - RFC Creacion Tienda Obra en SAP"
+      Tiernda_Obra__c-Update: "Mulesoft - RFC Actualizacion Tienda Obra en SAP"
+    Url_servicio__c:
+      Account-Insert: "ZMF_MAINTAIN_CUS_SF"
+      Account-Update: "ZMF_CHANGE_CUS_SF"
+      Tiernda_Obra__c-Insert: "ZMF_MAINTAIN_CUS_SF"
+      Tiernda_Obra__c-Update: "ZMF_CHANGE_CUS_SF"
+    respuestaServicio:
+      Account-Insert: "Solicitante creado con fecha "
+      Account-Update: "Solicitante actualizado con fecha "
+      Tiernda_Obra__c-Insert: "Destinatario creado con fecha "
+      Tiernda_Obra__c-Update: "Destinatario actualizado con fecha "
+
+ecommerce:
+  lead:
+    sfObject: "Lead"
+    sfExtId: "Id_Commerce__c"
+  leadGFK:
+    sfObject: "Lead"
+    sfExtId: "Id_GFK__c"
+    retry: "30"
+    interval: "30000"
+  quote:
+    sfObject: "SBQQ__Quote__c"
+    error:
+      emailTo: "mulesoft@alercesdigital.com,lvera@volcan.cl"
+      templateId: "139"
+      proceso-quote: "Sincronización de cotizaciones"
+    success:
+      emailTo: "mulesoft@alercesdigital.com,lvera@volcan.cl"
+      templateId: "225"
+      proceso-quote: "Sincronización de cotizaciones"
+
+brevo:
+  protocol: "HTTPS"
+  host: "api.brevo.com"
+  port: ""
+  api-key: "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"
+  path:
+    importContacts: "/v3/contacts-xxx"
+    sendSurvey: "/v3/smtp/email-xxx"
+    sendEmail: "/v3/smtp/email"
+  errorEmail:
+    importContacts:
+      email: "mulesoft@alercesdigital.com,lvera@volcan.cl"
+      templateId: "139"
+      proceso: "Sincronización de contactos"
+    sendSurvey:
+      email: "mulesoft@alercesdigital.com,lvera@volcan.cl"
+      templateId: "139"
+      ATCRetail: "Envio de encuestas Satisfacción Clientes - ATC Retail"
+      ATCConstructoras: "Envio de encuestas Satisfacción Clientes - ATC Constructoras"
+      ATCRegiones: "Envio de encuestas Satisfacción Clientes - ATC Regiones"
+      Workcenter: "Envio de encuestas Satisfacción Clientes - Workcenter"
+  successEmail:
+    importContacts:
+      email: "mulesoft@alercesdigital.com,lvera@volcan.cl"
+      templateId: "225"
+      proceso: "Sincronización de contactos"
+    sendSurvey:
+      email: "mulesoft@alercesdigital.com,lvera@volcan.cl"
+      templateId: "225"
+      proceso: "Sincronización de contactos"
+      ATCRetail: "Envio de encuestas Satisfacción Clientes - ATC Retail"
+      ATCConstructoras: "Envio de encuestas Satisfacción Clientes - ATC Constructoras"
+      ATCRegiones: "Envio de encuestas Satisfacción Clientes - ATC Regiones"
+      Workcenter: "Envio de encuestas Satisfacción Clientes - Workcenter"
+  survey:
+    template:
+      ATCRetail: "189"
+      ATCConstructoras: "197"
+      ATCRegiones : "198"
+      Workcenter: "200"
+  listIds:
+    marketing: "11"
+
+s-sap:
+  protocol: "HTTP"
+  host: "s-sap-qa-8bfq3o.internal-5qufiz.usa-e2.cloudhub.io"
+  port: ""
+  basePath: "/api"
+  client:
+    path: "/client"
+
+salesforce:
+  user: "integrador.mulesoft@volcan.cl.uatvolcan"
+  pass: "1nt3gr4c10n"
+  token: "ucbo0d3HrUjQuO3UTZsMztEs"
+  client_id: "3MVG9xfrbKQ6hBytnC5pEE29nNsepHcgp0v2.zeXlyITc6BFrHPUz8Ql1x4.2ExjEhOkkf0diZTNd06fusTVq"
+  client_secret: "CFF0D5314D4BDFA52FA8FBE90367E66334930629A34E2CD23E69C491CBA2A82D"
+  tokenEndpoint: "https://test.salesforce.com/services/oauth2/token"
+  query:
+    importContacts: "SELECT Id, FirstName, LastName, Email, Title, Propietario_Cuenta_asociada__c, rea_de_Trabajo_consolidado__c, Rut__c, Tipo_de_Cuenta_Asociada__c, Account.Name, owner.name, CreatedDate, Phone, MobilePhone FROM Contact WHERE (CreatedDate=YESTERDAY OR LastModifiedDate=YESTERDAY) AND Email!=null"
