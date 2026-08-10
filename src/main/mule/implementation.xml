@@ -210,11 +210,17 @@ p('ecommerce.leadGFK.sfObject')]]></ee:set-variable>
 				<ee:set-variable variableName="dataToSalesforce" ><![CDATA[%dw 2.0
 import * from dw::util::Values
 output application/json
+
+fun trunc40 (value) = if((!isEmpty(value)) and (sizeOf(value) > 39)) value[0 to 39] else value
+fun trunc255 (value) = if((!isEmpty(value)) and (sizeOf(value) > 254)) value[0 to 254] else value
+
 ---
 payload.data map (item,index) -> (
     (item 
     update ("Region__c") with ((vars.sfComunas filter (upper($.comuna) == upper(item.Comuna_Zona_de_transporte__c)))[0].region default "")
     update ("Comuna_Zona_de_transporte__c") with ((vars.sfComunas filter (upper($.comuna) == upper(item.Comuna_Zona_de_transporte__c)))[0].comuna default "")
+    update ("LastName") with trunc40(item.LastName)
+    update ("Nombre_Proyecto_GFK__c") with trunc255(item.Nombre_Proyecto_GFK__c)
     )
     ++ {"RecordType.Name": "Prospecto GFK"}
     ++ {"Status": "Abierto"}

@@ -156,6 +156,14 @@ output application/json
         <logger level="DEBUG" doc:name="Input Data" doc:id="b4eaa24a-2d53-4e35-9b2d-a498acfa91a2" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
         <choice doc:name="Choice" doc:id="7f3f99a3-7d61-4878-9104-4ff630cb62bd" >
 			<when expression='#[payload.source == "Shopify"]'>
+				<ee:transform doc:name="Transform Message" doc:id="18dab70e-d622-4733-9429-59a3eaa19cc1">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload.data]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
 				<flow-ref doc:name="lead_Shopify_subFlow" doc:id="b028c429-e4da-4f42-8d08-885bdbe5b0a4" name="lead_Shopify_subFlow" />
 				<logger level="DEBUG" doc:name="Output Data" doc:id="53b42e0c-1167-4349-93d6-1184d6eb26ce" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
 			</when>
