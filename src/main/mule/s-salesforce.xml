@@ -5,12 +5,13 @@ http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mu
     <apikit:config name="s-salesforce-config" api="s-salesforce.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
     <flow name="s-salesforce-main">
         <http:listener config-ref="s-salesforce-httpListenerConfig" path="/api/*">
-            <http:response statusCode="#[vars.httpStatus default 200]">
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            <reconnect frequency="5000" count="3" />
+			<http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
             </http:response>
             <http:error-response statusCode="#[vars.httpStatus default 500]">
-                <http:body>#[payload]</http:body>
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
             </http:error-response>
         </http:listener>
         <apikit:router config-ref="s-salesforce-config" />
@@ -151,7 +152,7 @@ output application/json
             </on-error-propagate>
         </error-handler>
     </flow> [STUDIO] -->
-    <flow name="post:\lead:application\json:s-salesforce-config">
+    <flow name="post:\lead:application\json:s-salesforce-config" maxConcurrency="1">
         <logger level="INFO" message="INIT post:\lead" doc:name="INIT" />
         <logger level="DEBUG" doc:name="Input Data" doc:id="b4eaa24a-2d53-4e35-9b2d-a498acfa91a2" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
         <choice doc:name="Choice" doc:id="7f3f99a3-7d61-4878-9104-4ff630cb62bd" >
@@ -168,14 +169,12 @@ payload.data]]></ee:set-payload>
 				<logger level="DEBUG" doc:name="Output Data" doc:id="53b42e0c-1167-4349-93d6-1184d6eb26ce" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
 			</when>
 			<when expression='#[payload.source == "GFK"]'>
-				<async doc:name="Async" doc:id="bc71740d-9ee2-4955-b2ad-4dec7bba26f2" >
-					<flow-ref doc:name="lead_GFK_subFlow" doc:id="cbcbb247-fc6a-4fdc-a7bb-a36e24eea9f2" name="lead_GFK_subFlow" />
-				</async>
+				<flow-ref doc:name="lead_GFK_subFlow" doc:id="cbcbb247-fc6a-4fdc-a7bb-a36e24eea9f2" name="lead_GFK_subFlow" />
 			</when>
 		</choice>
         <logger level="INFO" doc:name="END" doc:id="c0a6dc62-86c1-4d7e-a96c-a4531314a267" message="END post:\lead" />
     </flow>
-    <flow name="get:\quote:s-salesforce-config">
+    <flow name="get:\quote:s-salesforce-config" maxConcurrency="1">
         <logger level="INFO" message="INIT get:\quote" doc:name="INIT" />
         <logger level="DEBUG" doc:name="Input Data" doc:id="8520d2f1-bff2-4389-b305-3ad553d06f65" message="#[%dw 2.0&#xA;output text/plain&#xA;---&#xA;&quot;\r\n&#xA;\r\nReceived:\r\n queryParams: &quot; ++ write(attributes.queryParams,'application/json')]" />
         <ee:transform doc:name="queryParams" doc:id="ea4687ed-e408-4ebe-a6c6-c112c8e333c6">
@@ -191,7 +190,7 @@ message.attributes.queryParams]]></ee:set-variable>
         <logger level="DEBUG" doc:name="Output Data" doc:id="82d9841a-6898-4854-b375-5dc0354b4741" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
         <logger level="INFO" doc:name="END" doc:id="f77d21e4-49d1-4d9b-bb6c-95c8ba7f1a4a" message="END get:\quote" />
     </flow>
-    <flow name="post:\quote:application\json:s-salesforce-config">
+    <flow name="post:\quote:application\json:s-salesforce-config" maxConcurrency="1">
         <logger level="INFO" message="INIT post:\quote" doc:name="INIT" />
         <logger level="INFO" doc:name="Input Data" doc:id="f500a284-b56d-4d53-b6cc-49d6b1b8ec64" message="#[%dw 2.0&#xA;output application/json&#xA;---&#xA;payload]" />
         <async doc:name="Async" doc:id="afb3d1be-c3ee-47fd-b08c-13537aae79ad" >
@@ -259,7 +258,7 @@ output application/json
 		</ee:transform>
         <logger level="INFO" doc:name="END" doc:id="823f5753-3e07-4665-beab-a5a6bd84361c" message="END post:\quote" />
     </flow>
-	<flow name="get:\product:s-salesforce-config">
+	<flow name="get:\product:s-salesforce-config" maxConcurrency="1">
         <logger level="INFO" message="INIT get:\product" doc:name="INIT"/>
 		<flow-ref doc:name="getProductos_subFlow" doc:id="9d4219f9-6a22-4872-abee-778a1e4f63da" name="getProductos_subFlow"/>
 		<logger level="INFO" doc:name="Output Data" doc:id="7edb81a3-45b6-4282-8f15-c935fd27d1bf" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" />

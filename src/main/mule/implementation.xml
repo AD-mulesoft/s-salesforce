@@ -235,20 +235,21 @@ output application/csv headerLineNumber = 0 , header = true , lineSeparator = "\
 ---
 vars.dataToSalesforce]]]></salesforce:s-objects>
 		</salesforce:create-job-bulk-api-v2>
-		<logger level="INFO" doc:name="Job Status" doc:id="cad85239-4c66-4a5f-ac57-27f90f711a51" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfJob]"/>
-		<ee:transform doc:name="Wait 10000" doc:id="808b22a1-1562-4d2a-a7cc-60df2da5c569" >
-			<ee:message >
+		<async doc:name="Async" doc:id="025eefc6-8223-4eb8-b8d9-548496ec4e4d" >
+			<logger level="INFO" doc:name="Job Status" doc:id="cad85239-4c66-4a5f-ac57-27f90f711a51" message="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.sfJob]" />
+			<ee:transform doc:name="Wait 10000" doc:id="808b22a1-1562-4d2a-a7cc-60df2da5c569">
+			<ee:message>
 			</ee:message>
-			<ee:variables >
-				<ee:set-variable variableName="ignore" ><![CDATA[%dw 2.0
+			<ee:variables>
+				<ee:set-variable variableName="ignore"><![CDATA[%dw 2.0
 import wait from dw::Runtime
 output application/java
 ---
 {} wait 10000]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
-		<until-successful maxRetries="${ecommerce.leadGFK.retry}" doc:name="Until Successful" doc:id="6004b774-eac3-4cb2-ae92-72229fbb7dfb" millisBetweenRetries="${ecommerce.leadGFK.interval}">
-			<salesforce:get-job-state-bulk-api-v2 doc:name="Get job state bulk api v 2" doc:id="69848eaa-e01e-45b5-ab6c-2ef50cb80ea1" config-ref="Salesforce_Config" id="#[vars.sfJob.Id]"/>
+			<until-successful maxRetries="${ecommerce.leadGFK.retry}" doc:name="Until Successful" doc:id="6004b774-eac3-4cb2-ae92-72229fbb7dfb" millisBetweenRetries="${ecommerce.leadGFK.interval}">
+			<salesforce:get-job-state-bulk-api-v2 doc:name="Get job state bulk api v 2" doc:id="69848eaa-e01e-45b5-ab6c-2ef50cb80ea1" config-ref="Salesforce_Config" id="#[vars.sfJob.Id]" />
 			<choice doc:name="Choice" doc:id="27fb97c2-d8a3-4d76-97b0-38f09f7482d3">
 			<when expression="#[payload.state == 'InProgress' or payload.state == 'UploadComplete' or payload.state == 'Open']">
 				<logger level="INFO" doc:name="SF Job Status" doc:id="69ff8518-7f21-4406-ba00-ae9b7a99b564" message="#[%dw 2.0&#10;output application/json&#10;---&#10;payload.state]" />
@@ -259,20 +260,21 @@ output application/java
 			</otherwise>
 		</choice>
 		</until-successful>
-		<choice doc:name="Choice" doc:id="fe707dff-7bbf-4cca-9c2c-d993d2aef21b">
+			<choice doc:name="Choice" doc:id="fe707dff-7bbf-4cca-9c2c-d993d2aef21b">
 				<when expression="#[payload.state == 'JobComplete']">
-				<salesforce:retrieve-job-failed-results-bulk-v2 doc:name="Retrieve job failed results bulk v 2" doc:id="f1c6d6bb-b158-4d9d-9b4d-a78e87821d52" config-ref="Salesforce_Config" id="#[vars.sfJob.Id]"/>
-				<ee:transform doc:name="Error list" doc:id="1f97860f-e531-406f-a46d-959b1f334f01" >
-					<ee:message >
-						<ee:set-payload ><![CDATA[%dw 2.0
+				<salesforce:retrieve-job-failed-results-bulk-v2 doc:name="Retrieve job failed results bulk v 2" doc:id="f1c6d6bb-b158-4d9d-9b4d-a78e87821d52" config-ref="Salesforce_Config" id="#[vars.sfJob.Id]" />
+				<ee:transform doc:name="Error list" doc:id="1f97860f-e531-406f-a46d-959b1f334f01">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 payload]]></ee:set-payload>
 					</ee:message>
 				</ee:transform>
-				<logger level="INFO" doc:name="Log Failed Records" doc:id="bd802eee-66b4-4c49-944d-db5e6a0bb6f9" message="#[%dw 2.0&#10;import * from dw::core::Arrays&#10;output application/json&#10;---&#10;take(payload,50)]"/>
+				<logger level="INFO" doc:name="Log Failed Records" doc:id="bd802eee-66b4-4c49-944d-db5e6a0bb6f9" message="#[%dw 2.0&#10;import * from dw::core::Arrays&#10;output application/json&#10;---&#10;take(payload,50)]" />
 			</when>
 			</choice>
+		</async>
 	</sub-flow>
 	<sub-flow name="getQuote_subFlow" doc:id="0e55fc4a-1012-4ae9-a58d-a97aff779acd" >
 		<ee:transform doc:name="Query Get Quotes" doc:id="33307485-a4ea-4a8c-8adb-533907427e72" >
