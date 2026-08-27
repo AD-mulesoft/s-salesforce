@@ -30,7 +30,7 @@ http://www.mulesoft.org/schema/mule/salesforce-pub-sub http://www.mulesoft.org/s
 		</salesforce:oauth-user-pass-connection>
 	</salesforce:sfdc-config>
 	<salesforce-pub-sub:pubsub-config name="Salesforce_PubSub_Config" doc:name="Salesforce PubSub Config" doc:id="636656fd-0c89-4db2-8ed6-5af0fd5c9f1b" >
-		<salesforce-pub-sub:oauth-user-pass-connection consumerKey="${salesforce.client_id}" consumerSecret="${salesforce.client_secret}" username="${salesforce.user}" password="${salesforce.pass}" tokenEndpoint="${salesforce.tokenEndpoint}" securityToken="${salesforce.token}">
+		<salesforce-pub-sub:oauth-user-pass-connection consumerKey="${salesforce.client_id}" consumerSecret="${salesforce.client_secret}" username="${salesforce.user}" password="${salesforce.pass}" tokenEndpoint="${salesforce.tokenEndpoint}" securityToken="${salesforce.token}" inactivityWatchdogSchedulerFrequency="15" inactivityWatchdogSchedulerFrequencyUnit="MINUTES">
 			<reconnection >
 				<reconnect frequency="5000" count="3" />
 			</reconnection>
