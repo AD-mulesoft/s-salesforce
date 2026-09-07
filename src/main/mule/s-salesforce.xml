@@ -286,6 +286,7 @@ output application/json
     </flow>
 	<flow name="Send_Client" doc:id="fc8b3036-9042-4f5d-a78e-dcde71250dad" maxConcurrency="1">
 		<salesforce-pub-sub:subscribe-channel-listener doc:name="Subscribe channel listener" doc:id="86683a6e-17fd-49c2-a47b-324cd207c6b3" config-ref="Salesforce_PubSub_Config" channelName="/event/VLC_Registros_a_SAP__e">
+			<reconnect frequency="5000" count="3" />
 			<salesforce-pub-sub:replay-option >
 				<salesforce-pub-sub:latest />
 			</salesforce-pub-sub:replay-option>
