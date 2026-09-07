@@ -433,7 +433,7 @@ vars.sfContact.items[0].id]]></ee:set-variable>
 						</ee:transform>
 					</otherwise>
 				</choice>
-				<ee:transform doc:name="Direcciones iguales ?" doc:id="fb96cead-a053-4e23-a3d8-bb4e3077f091">
+				<ee:transform doc:name="igualDireccion" doc:id="fb96cead-a053-4e23-a3d8-bb4e3077f091">
 					<ee:message>
 					</ee:message>
 					<ee:variables >
@@ -446,7 +446,7 @@ if ((!isEmpty(payload.tiendaObra_Calle_Numero__c) and !isEmpty(payload.tienda_Sh
 					</ee:variables>
 				</ee:transform>
 				<choice doc:name="Choice Crear TiendaObra" doc:id="0cbe988e-1c62-47f7-9679-70844eea1ed0">
-					<when expression='#[payload.flagBoletaFactura == "factura" and vars.sfTiendaObra == "distinto"]'>
+					<when expression='#[payload.flagBoletaFactura == "factura" and vars.igualDireccion == "distinto"]'>
 						<ee:transform doc:name="Query Get TiendaObra" doc:id="a08b2b78-8002-4a71-933d-b0b6ac25008d">
 							<ee:message>
 							</ee:message>
