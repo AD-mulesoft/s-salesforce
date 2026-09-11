@@ -117,6 +117,7 @@ s-sap:
 salesforce:
   user: "integrador.salesforce@volcan.cl"
   pass: "1nt3gr4c10n9NrbpIu5blFB6D06ZbQpFAV12"
+  token: ""
   client_id: "3MVG9xOCXq4ID1uEpciKJS9ESKN_dV5YiJcFBpO_r_0gV9Jfh07nefxOSN9k_A.0H4tlXK_5e66ZeVFYAv7Vd"
   client_secret: "4AA402B99F4189F60C580676CA3876E09E6B76E899A1D2A210C25E6BBBA5806D"
   tokenEndpoint: "https://login.salesforce.com/services/oauth2/token"
