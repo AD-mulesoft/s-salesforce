@@ -10,7 +10,7 @@ fun trunc255 (value) = if((!isEmpty(value)) and (sizeOf(value) > 254)) value[0 t
 [{
 	"Rut__c": payload.account_Rut__c replace "." with (""),
 	"Name": trunc255(payload.account_Name) default "",
-	"Nombre_de_Fantasia__c": trunc35(payload.account_Nombre_de_Fantasia__c) default "",
+//	"Nombre_de_Fantasia__c": trunc35(payload.account_Nombre_de_Fantasia__c) default "",
 	"Concepto_de_B_squeda_1__c": trunc20(payload.account_Concepto_de_B_squeda_1__c) default "",
 	"Pais__c": payload.account_Pais__c default "",
 	"Calle_Numero__c": trunc80(payload.account_Calle_Numero__c) default "",
